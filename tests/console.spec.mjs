@@ -46,9 +46,26 @@ test("responsive screenshots at 390/768/1280/1920 in both appearances",async ({p
     await page.goto("/");
     await expect(page.getByRole("heading",{name:"Developer overview"})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+    if(width<768) {
+      const noOverlap=await page.evaluate(()=>{
+        const brand=document.querySelector(".topbar-left").getBoundingClientRect();
+        const switcher=document.querySelector(".topbar-right").getBoundingClientRect();
+        return brand.bottom<=switcher.top;
+      });
+      expect(noOverlap).toBeTruthy();
+    }
     await page.screenshot({path:testInfo.outputPath("developer-light-"+width+".png"),fullPage:true});
     await page.getByRole("button",{name:"Toggle light and dark appearance"}).click();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
     await page.screenshot({path:testInfo.outputPath("developer-dark-"+width+".png"),fullPage:true});
+  }
+  for(const width of [390,1280]){
+    await page.setViewportSize({width,height:850});
+    await page.goto("/");
+    await page.getByLabel("Preview, view as").selectOption("partner-a");
+    await expect(page.getByRole("heading",{name:"Business overview"})).toBeVisible();
+    await page.screenshot({path:testInfo.outputPath("partner-light-"+width+".png"),fullPage:true});
+    await page.getByRole("button",{name:"Toggle light and dark appearance"}).click();
+    await page.screenshot({path:testInfo.outputPath("partner-dark-"+width+".png"),fullPage:true});
   }
 });

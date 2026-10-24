@@ -4,7 +4,7 @@ test("developer previews a sandbox without production side effects",async ({page
   await expect(page.getByRole("heading",{name:"Developer overview"})).toBeVisible();
   await page.getByRole("button",{name:"Deployments",exact:true}).first().click();
   await page.getByRole("button",{name:"+ Create sandbox"}).click();
-  await expect(page.getByRole("dialog")).toContainText("Synthetic sample data only");
+  await expect(page.locator("input[disabled]")).toHaveValue("Synthetic sample data only");
   await page.getByLabel("Client (type a name to search)").fill("Sample Services");
   await page.getByRole("button",{name:"Create preview sandbox"}).click();
   await expect(page.getByText("Sample Services · Sandbox")).toBeVisible();

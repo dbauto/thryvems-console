@@ -1,0 +1,12 @@
+{
+  "name": "thryvems-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "node --check app.js && node --check tests/console.test.mjs",
+    "build": "node scripts/build.mjs",
+    "e2e": "node --test tests/console.test.mjs",
+    "check": "npm run typecheck && npm run build && npm run e2e"
+  }
+}

@@ -6,7 +6,11 @@ test("developer previews a sandbox without production side effects",async ({page
   await page.getByRole("button",{name:"+ Create sandbox"}).click();
   await expect(page.locator("input[disabled]")).toHaveValue("Synthetic sample data only");
   await page.getByLabel("Client (type a name to search)").fill("Sample Services");
+  await page.getByLabel("Change type").selectOption("Bug fix");
+  await page.getByLabel("Issue or change reference").fill("SYNTH-101");
   await page.getByRole("button",{name:"Create preview sandbox"}).click();
+  await expect(page.getByText(/SYNTH-101/)).toBeVisible();
+  await expect(page.getByRole("button",{name:"Promote"}).first()).toBeDisabled();
   await expect(page.getByText("Sample Services · Sandbox")).toBeVisible();
   await page.reload();
   await page.getByRole("button",{name:"Deployments",exact:true}).first().click();

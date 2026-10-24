@@ -111,8 +111,8 @@ function deployments(){
     table(["Client","Production version","Production status","Sandboxes","Actions"],rows,"No clients match","Try another client name.")+
     '<section class="card"><div class="card-head"><div><h2>Sandbox environments</h2><p>Separate testing environments. Never share a production database.</p></div></div>'+
     (state.sandboxes.length?state.sandboxes.map(s=>'<div class="rule-row"><div><div class="row-primary">'+safe(client(s.clientId)?.name||"")+' · Sandbox</div>'+
-    '<div class="secondary">Version '+safe(s.version)+' · '+safe(s.created)+' · Synthetic data</div></div><div class="inline-actions">'+status(s.status)+
-    actionButton("Compare","compare","btn-small",s.id)+actionButton("Remove","remove-sandbox","btn-small btn-danger",s.id)+'</div></div>').join(""):'<div class="empty"><strong>No sandboxes</strong>Create one to preview an isolated environment.</div>')+'</section>';
+    '<div class="secondary">Version '+safe(s.version)+' · '+safe(s.created)+' · '+safe(s.purpose||"Version validation")+(s.reference?' · '+safe(s.reference):'')+' · Synthetic data</div></div><div class="inline-actions">'+status(s.status)+
+    actionButton("Compare","compare","btn-small",s.id)+actionButton("Promote","promote","btn-small",s.id,true)+actionButton("Remove","remove-sandbox","btn-small btn-danger",s.id)+'</div></div>').join(""):'<div class="empty"><strong>No sandboxes</strong>Create one to preview an isolated environment.</div>')+'</section>';
 }
 function releases(){
   return header("Releases","Review application versions before a client receives an update.")+
@@ -225,6 +225,8 @@ function sandboxDialog(defaultId){
   modal("Create client sandbox","Clone a client's app version and configuration into an isolated preview environment.",
     '<div class="field"><label for="sandbox-client">Client (type a name to search)</label><input id="sandbox-client" list="sandbox-options" required value="'+safe(c.name)+'" autocomplete="off" /><datalist id="sandbox-options">'+options+'</datalist></div>'+
     control("Application version","select","sandbox-version",c.live,RELEASES.map(x=>({value:x.version,label:"v"+x.version})))+
+    control("Change type","select","sandbox-purpose","Bug fix",[{value:"Bug fix",label:"Bug fix"},{value:"Feature update",label:"Feature update"},{value:"Version validation",label:"Version validation"}])+
+    control("Issue or change reference","text","sandbox-reference","",[])+
     '<div class="field"><label>Test data</label><input value="Synthetic sample data only" disabled /><small>No production QMS records, secrets, emails, auth tokens or customer database copies.</small></div>'+
     '<div class="alert">Preview action only. This does not create a Cloudflare Worker, Neon project or hosted URL. Provisioning needs an audited backend workflow.</div>'+
     '<p class="small" id="sandbox-error" role="alert"></p>',
@@ -234,7 +236,7 @@ function compareSandbox(id){
   const s=state.sandboxes.find(x=>x.id===id);if(!s)return;
   const c=client(s.clientId);
   modal("Compare versions",c.name+" · Environment comparison",
-    '<div class="detail-grid">'+fact("Production",c.live||"Not provisioned")+fact("Sandbox",s.version)+fact("Data","Separate synthetic data")+fact("Review status",s.status)+'</div>'+
+    '<div class="detail-grid">'+fact("Production",c.live||"Not provisioned")+fact("Sandbox",s.version)+fact("Data","Separate synthetic data")+fact("Review status",s.status)+fact("Change type",s.purpose||"Version validation")+fact("Change reference",s.reference||"Not entered")+'</div>'+
     '<div class="alert">Code/configuration diff and compatibility gates require integration with a version registry. No actual production change is available in this preview.</div>');
 }
 function saveSandboxes(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state.sandboxes));}
@@ -242,11 +244,13 @@ function createSandbox(){
   const typed=document.getElementById("sandbox-client")?.value.trim().toLowerCase();
   const c=CLIENTS.find(x=>x.name.toLowerCase()===typed && x.live);
   const ver=document.getElementById("sandbox-version")?.value;
+  const purpose=document.getElementById("sandbox-purpose")?.value||"Bug fix";
+  const reference=(document.getElementById("sandbox-reference")?.value||"").trim().slice(0,100);
   const err=document.getElementById("sandbox-error");
   if(!c){if(err)err.textContent="Choose a live client from the matching names.";return;}
   if(!RELEASES.some(x=>x.version===ver)){if(err)err.textContent="Choose a known application version.";return;}
   if(state.sandboxes.some(s=>s.clientId===c.id)){if(err)err.textContent="This client already has a preview sandbox. Remove it before creating another.";return;}
-  state.sandboxes.push({id:"sb-preview-"+c.id,clientId:c.id,version:ver,status:"Draft",created:"24 Oct 2026"});
+  state.sandboxes.push({id:"sb-preview-"+c.id,clientId:c.id,version:ver,status:"Draft",created:"24 Oct 2026",purpose,reference});
   saveSandboxes();document.getElementById("dialog-root").innerHTML="";state.page="deployments";render();
 }
 document.addEventListener("click", e=>{

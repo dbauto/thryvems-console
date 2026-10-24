@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "node --check app.js && node --check tests/console.spec.mjs && node --check playwright.config.mjs && node --check scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
     "build": "node scripts/build.mjs",
     "e2e": "playwright test",
-    "check": "npm run typecheck && npm run build && npm run e2e"
+    "check": "npm run typecheck && npm run unit && npm run build && npm run e2e",
+    "unit": "node --test tests/finance.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0"

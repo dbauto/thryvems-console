@@ -15,6 +15,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
+      - run: npm run unit
       - run: npm run build
       - run: npm run e2e
       - uses: actions/upload-artifact@v4

@@ -67,6 +67,8 @@ function bizPage(r) {
 }
 
 let lastPath = null;
+// Presentation-only preference; no client data or authorization is stored.
+let sidebarCollapsed = false;
 export function render() {
   const ui = getUi();
   document.documentElement.classList.toggle("dark", ui.theme === "dark");
@@ -90,8 +92,9 @@ export function render() {
   const menu = showNav ? nav.map(([id, label, icon, href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + icon + "</span>" + h(label) + devCount(id) + "</a>").join("") : "";
   const focus = captureFocus();
   document.getElementById("app").innerHTML =
-    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar" aria-label="Console navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span><strong>' + title + "</strong><small>" + h(sub) + "</small></span></div>" +
+    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar' + (sidebarCollapsed ? ' collapsed' : '') + '" aria-label="Console navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span><strong>' + title + "</strong><small>" + h(sub) + "</small></span></div>" +
     (showNav ? '<nav class="nav" aria-label="' + (ws === "biz" ? "Business" : "Developer") + ' menu"><div class="nav-label">' + (ws === "biz" ? "Business" : "Platform") + "</div>" + menu + "</nav>" : '<div class="nav"></div>') +
+    '<div class="sidebar-tools"><button type="button" class="sidebar-pin" data-act="toggle-sidebar" aria-label="' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '" aria-expanded="' + (!sidebarCollapsed) + '">' + lucideIcon(sidebarCollapsed ? "panel-left-open" : "panel-left-close") + '<span class="nav-text">' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '</span></button></div>' +
     '<div class="sidebar-footer">' + (ws === "biz" && showNav ? '<a href="#/biz/settings" class="footer-link' + (active === "settings" ? " active" : "") + '"' + (active === "settings" ? ' aria-current="page"' : "") + '>' + lucideIcon("settings") + ' Business settings</a>' : "") +
     "ThryveMS console preview<br/>Synthetic data · 24 Oct 2026<br/>No production connection</div></aside>" +
     '<div class="workspace"><header class="topbar"><div class="topbar-left"><span class="brand-mark small" aria-hidden="true">T</span><strong>' + h(title) + "</strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
@@ -153,6 +156,7 @@ const builtins = {
   discard: () => closeOverlay(true),
   "keep-editing": () => { const w = document.querySelector(".dirty-warning"); if (w) w.hidden = true; document.querySelector(".modal-content input,.modal-content textarea,.modal-content select")?.focus(); },
   theme: () => { const ui = getUi(); ui.theme = ui.theme === "dark" ? "light" : "dark"; saveUi(); render(); },
+  "toggle-sidebar": () => { sidebarCollapsed = !sidebarCollapsed; render(); document.querySelector(".sidebar-pin")?.focus(); },
   "tbl-sort": (el) => { const st = getTableState(el.dataset.id); if (st.sort === el.dataset.arg) st.dir = -st.dir; else { st.sort = el.dataset.arg; st.dir = 1; } st.page = 0; render(); },
   "tbl-page": (el) => { const st = getTableState(el.dataset.id); st.page = Math.max(0, st.page + Number(el.dataset.arg)); render(); },
   "retry-load": () => { const ui = getUi(); ui.dataState = "Normal"; saveUi(); render(); },

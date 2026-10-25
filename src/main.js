@@ -6,6 +6,8 @@
 import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting } from "./store.js";
 import { PARTNERS } from "./seed.js";
 import { h, closeOverlay, getTableState, loadingState, errorState, markDirty, toast } from "./ui.js";
+import { icon as lucideIcon } from "./icons.js";
+import { wordmark } from "./logo.js";
 import { registry } from "./registry.js";
 import * as devOverview from "./pages/dev-overview.js";
 import * as devOrgs from "./pages/dev-orgs.js";
@@ -20,12 +22,12 @@ import * as shared from "./pages/shared.js";
 for (const m of [devOverview, devOrgs, devDeploy, devSandbox, devReleases, devFinance, devOps, biz, shared]) Object.assign(registry.actions, m.actions || {});
 
 export const NAV_DEV = [
-  ["overview", "Overview", "▦", "#/dev"], ["organisations", "Organisations", "▤", "#/dev/organisations"], ["deployments", "Deployments", "▣", "#/dev/deployments"],
-  ["releases", "Releases", "⇧", "#/dev/releases"], ["finance", "Finance", "₱", "#/dev/finance"], ["requests", "Requests", "✉", "#/dev/requests"],
-  ["logs", "Logs", "≡", "#/dev/logs"], ["jobs", "Background jobs", "⚙", "#/dev/jobs"], ["reports", "Support reports", "⚑", "#/dev/support-reports"],
-  ["support", "Support access", "⌂", "#/dev/support-access"], ["team", "Platform team", "♙", "#/dev/team"],
+  ["overview", "Overview", "layout-dashboard", "#/dev"], ["organisations", "Organisations", "building-2", "#/dev/organisations"], ["deployments", "Deployments", "server", "#/dev/deployments"],
+  ["releases", "Releases", "git-branch", "#/dev/releases"], ["finance", "Finance", "wallet", "#/dev/finance"], ["requests", "Requests", "mail", "#/dev/requests"],
+  ["logs", "Logs", "scroll-text", "#/dev/logs"], ["jobs", "Background jobs", "settings", "#/dev/jobs"], ["reports", "Support reports", "flag", "#/dev/support-reports"],
+  ["support", "Support access", "life-buoy", "#/dev/support-access"], ["team", "Platform team", "users", "#/dev/team"],
 ];
-export const NAV_BIZ = [["overview", "Overview", "▦", "#/biz"], ["clients", "Clients", "▤", "#/biz/clients"], ["finance", "Finance", "₱", "#/biz/finance"], ["requests", "Requests", "✉", "#/biz/requests"]];
+export const NAV_BIZ = [["overview", "Overview", "layout-dashboard", "#/biz"], ["clients", "Clients", "building-2", "#/biz/clients"], ["finance", "Finance", "wallet", "#/biz/finance"], ["requests", "Requests", "mail", "#/biz/requests"]];
 
 export function parseRoute() {
   const raw = (location.hash || "").replace(/^#/, "") || "/";
@@ -66,6 +68,8 @@ function bizPage(r) {
 }
 
 let lastPath = null;
+// Presentation-only preference; no client data or authorization is stored.
+let sidebarCollapsed = false;
 export function render() {
   const ui = getUi();
   document.documentElement.classList.toggle("dark", ui.theme === "dark");
@@ -86,14 +90,15 @@ export function render() {
   const showNav = allowed;
   const title = ws === "biz" ? "ThryveMS Business" : "ThryveMS Platform";
   const sub = ws === "biz" ? (partnerOf(businessPartnerId())?.label || "") + " · Business management" : "Developer Console";
-  const menu = showNav ? nav.map(([id, label, icon, href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + icon + "</span>" + h(label) + devCount(id) + "</a>").join("") : "";
+  const menu = showNav ? nav.map(([id, label, iconName, href]) => '<a href="' + href + '" title="' + h(label) + '" aria-label="' + h(label) + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + lucideIcon(iconName) + '</span><span class="nav-text">' + h(label) + '</span>' + devCount(id) + "</a>").join("") : "";
   const focus = captureFocus();
   document.getElementById("app").innerHTML =
-    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar" aria-label="Console navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span><strong>' + title + "</strong><small>" + h(sub) + "</small></span></div>" +
+    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar' + (sidebarCollapsed ? ' collapsed' : '') + '" aria-label="Console navigation"><div class="brand"><img class="product-symbol" src="./assets/thryvems-mark.svg" width="34" height="28" alt="" /><span class="brand-details"><strong class="brand-name" aria-label="' + h(title) + '">' + wordmark() + "</strong><small>" + h(sub) + "</small></span></div>" +
     (showNav ? '<nav class="nav" aria-label="' + (ws === "biz" ? "Business" : "Developer") + ' menu"><div class="nav-label">' + (ws === "biz" ? "Business" : "Platform") + "</div>" + menu + "</nav>" : '<div class="nav"></div>') +
-    '<div class="sidebar-footer">' + (ws === "biz" && showNav ? '<a href="#/biz/settings" class="footer-link' + (active === "settings" ? " active" : "") + '"' + (active === "settings" ? ' aria-current="page"' : "") + '>⚙ Business settings</a>' : "") +
+    '<div class="sidebar-tools"><button type="button" class="sidebar-pin" data-act="toggle-sidebar" aria-label="' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '" aria-expanded="' + (!sidebarCollapsed) + '">' + lucideIcon(sidebarCollapsed ? "panel-left-open" : "panel-left-close") + '<span class="nav-text">' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '</span></button></div>' +
+    '<div class="sidebar-footer">' + (ws === "biz" && showNav ? '<a href="#/biz/settings" class="footer-link' + (active === "settings" ? " active" : "") + '"' + (active === "settings" ? ' aria-current="page"' : "") + '>' + lucideIcon("settings") + ' Business settings</a>' : "") +
     "ThryveMS console preview<br/>Synthetic data · 24 Oct 2026<br/>No production connection</div></aside>" +
-    '<div class="workspace"><header class="topbar"><div class="topbar-left"><span class="brand-mark small" aria-hidden="true">T</span><strong>' + h(title) + "</strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
+    '<div class="workspace"><header class="topbar"><div class="topbar-left"><img class="product-symbol small" src="./assets/thryvems-mark.svg" width="30" height="24" alt="" /><strong class="brand-name" aria-label="' + h(title) + '">' + wordmark() + ' <span class="brand-ws">' + (ws === "biz" ? "Business" : "Platform") + "</span></strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
     '<div class="topbar-right">' + previewControls(ws) + "</div></header>" +
     (showNav ? '<nav class="mobile-nav" aria-label="Console pages">' + nav.map(([id, label, , href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + ">" + h(label) + "</a>").join("") + (ws === "biz" ? '<a href="#/biz/settings" class="' + (active === "settings" ? "active" : "") + '">Business settings</a>' : "") + "</nav>" : "") +
     '<main class="content" id="page" tabindex="-1">' + previewNote(ws) + content + "</main></div></div>" + '<div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>';
@@ -152,6 +157,7 @@ const builtins = {
   discard: () => closeOverlay(true),
   "keep-editing": () => { const w = document.querySelector(".dirty-warning"); if (w) w.hidden = true; document.querySelector(".modal-content input,.modal-content textarea,.modal-content select")?.focus(); },
   theme: () => { const ui = getUi(); ui.theme = ui.theme === "dark" ? "light" : "dark"; saveUi(); render(); },
+  "toggle-sidebar": () => { sidebarCollapsed = !sidebarCollapsed; render(); document.querySelector(".sidebar-pin")?.focus(); },
   "tbl-sort": (el) => { const st = getTableState(el.dataset.id); if (st.sort === el.dataset.arg) st.dir = -st.dir; else { st.sort = el.dataset.arg; st.dir = 1; } st.page = 0; render(); },
   "tbl-page": (el) => { const st = getTableState(el.dataset.id); st.page = Math.max(0, st.page + Number(el.dataset.arg)); render(); },
   "retry-load": () => { const ui = getUi(); ui.dataState = "Normal"; saveUi(); render(); },

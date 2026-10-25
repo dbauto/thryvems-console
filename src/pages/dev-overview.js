@@ -38,24 +38,24 @@ export function render() {
   return pageHeader({ title: "Developer overview", description: "Clients, deployments, releases and actual platform finances. Figures come from the preview records below them; select a card to see its records." }) + filters +
     '<h2 class="section-title">Clients</h2>' +
     figureGrid([
-      figure({ label: "Client organisations", value: clients.filter((c) => c.accountStatus !== "Archived").length, badge: "Excludes archived", tone: "draft", icon: "▤", href: "#/dev/organisations", testid: "kpi-clients" }),
-      figure({ label: "Active clients", value: clients.filter((c) => ["Active", "Past due"].includes(c.subscription.status) && c.accountStatus !== "Archived").length, badge: "Paid plan", tone: "done", icon: "✓", href: "#/dev/organisations?sub=active-any", testid: "kpi-active" }),
-      figure({ label: "Trial clients", value: clients.filter((c) => c.subscription.status === "Trial").length, icon: "○", href: "#/dev/organisations?sub=Trial", testid: "kpi-trial" }),
-      figure({ label: "Pending client provisioning", value: pendingProv.length, badge: pendingProv.some((c) => c.accountStatus === "Provisioning failed") ? "Includes a failure" : null, tone: "overdue", icon: "◇", href: "#/dev/organisations?status=pending", testid: "kpi-pending" }),
+      figure({ label: "Client organisations", value: clients.filter((c) => c.accountStatus !== "Archived").length, badge: "Excludes archived", tone: "draft", icon: "building-2", href: "#/dev/organisations", testid: "kpi-clients" }),
+      figure({ label: "Active clients", value: clients.filter((c) => ["Active", "Past due"].includes(c.subscription.status) && c.accountStatus !== "Archived").length, badge: "Paid plan", tone: "done", icon: "circle-check", href: "#/dev/organisations?sub=active-any", testid: "kpi-active" }),
+      figure({ label: "Trial clients", value: clients.filter((c) => c.subscription.status === "Trial").length, icon: "circle-dot", href: "#/dev/organisations?sub=Trial", testid: "kpi-trial" }),
+      figure({ label: "Pending client provisioning", value: pendingProv.length, badge: pendingProv.some((c) => c.accountStatus === "Provisioning failed") ? "Includes a failure" : null, tone: "overdue", icon: "flask-conical", href: "#/dev/organisations?status=pending", testid: "kpi-pending" }),
     ], "Client figures") +
     '<h2 class="section-title">Deployments and releases</h2>' +
     figureGrid([
-      figure({ label: "Active production deployments", value: liveDeps.length, badge: "Live", tone: "done", icon: "▣", href: "#/dev/deployments", testid: "kpi-live" }),
-      figure({ label: "Active sandbox deployments", value: sandboxes.length, badge: "Simulation", tone: "draft", icon: "◇", href: "#/dev/deployments?tab=sandboxes", testid: "kpi-sandboxes" }),
-      figure({ label: "Deployment warnings and failures", value: warnings.length, badge: warnings.length ? "Needs a look" : "None", tone: warnings.length ? "soon" : "done", icon: "!", href: "#/dev/deployments?health=attention", testid: "kpi-warnings" }),
-      figure({ label: "Release requests awaiting approval", value: pendingReleases.length + releasesAwaiting.length, note: pendingReleases.length + " promotion request(s), " + releasesAwaiting.length + " release(s)", icon: "⇧", href: "#/dev/releases", testid: "kpi-release-approvals" }),
+      figure({ label: "Active production deployments", value: liveDeps.length, badge: "Live", tone: "done", icon: "server", href: "#/dev/deployments", testid: "kpi-live" }),
+      figure({ label: "Active sandbox deployments", value: sandboxes.length, badge: "Simulation", tone: "draft", icon: "flask-conical", href: "#/dev/deployments?tab=sandboxes", testid: "kpi-sandboxes" }),
+      figure({ label: "Deployment warnings and failures", value: warnings.length, badge: warnings.length ? "Needs a look" : "None", tone: warnings.length ? "soon" : "done", icon: "triangle-alert", href: "#/dev/deployments?health=attention", testid: "kpi-warnings" }),
+      figure({ label: "Release requests awaiting approval", value: pendingReleases.length + releasesAwaiting.length, note: pendingReleases.length + " promotion request(s), " + releasesAwaiting.length + " release(s)", icon: "git-branch", href: "#/dev/releases", testid: "kpi-release-approvals" }),
     ], "Deployment figures") +
     '<h2 class="section-title">Finance <span class="muted small">— ' + h(periodCaption()) + (filtered ? " · filtered clients (platform-level costs excluded)" : "") + "</span></h2>" +
     figureGrid([
-      figure({ label: "Subscription revenue (recognised)", value: money(fin.subscription), note: "Enterprise " + money(fin.enterprise) + " · total " + money(fin.revenue), icon: "₱", href: "#/dev/finance?tab=revenue", testid: "kpi-sub-revenue" }),
-      figure({ label: "Actual infrastructure expenses", value: money(infra), badge: fin.incomplete ? "Incomplete" : "Complete", tone: fin.incomplete ? "soon" : "done", note: "Direct " + money(fin.direct) + " · shared " + money(fin.shared) + (filtered ? "" : " · unallocated " + money(fin.unallocated)), icon: "▣", href: "#/dev/finance?tab=costs", testid: "kpi-infra" }),
-      figure({ label: "Other operating expenses", value: filtered ? "No data" : money(fin.opex), note: filtered ? "Platform-level; not split by client" : "Accounting, workspace, licences", icon: "▤", href: "#/dev/finance?tab=costs", testid: "kpi-opex" }),
-      figure({ label: "Actual operating profit", value: money(fin.profit), badge: "Margin " + pct(fin.margin), tone: fin.profit >= 0 ? "done" : "overdue", note: "Revenue − actual costs − operating expenses", icon: "✓", href: "#/dev/finance", testid: "kpi-profit" }),
+      figure({ label: "Subscription revenue (recognised)", value: money(fin.subscription), note: "Enterprise " + money(fin.enterprise) + " · total " + money(fin.revenue), icon: "wallet", href: "#/dev/finance?tab=revenue", testid: "kpi-sub-revenue" }),
+      figure({ label: "Actual infrastructure expenses", value: money(infra), badge: fin.incomplete ? "Incomplete" : "Complete", tone: fin.incomplete ? "soon" : "done", note: "Direct " + money(fin.direct) + " · shared " + money(fin.shared) + (filtered ? "" : " · unallocated " + money(fin.unallocated)), icon: "server", href: "#/dev/finance?tab=costs", testid: "kpi-infra" }),
+      figure({ label: "Other operating expenses", value: filtered ? "No data" : money(fin.opex), note: filtered ? "Platform-level; not split by client" : "Accounting, workspace, licences", icon: "building-2", href: "#/dev/finance?tab=costs", testid: "kpi-opex" }),
+      figure({ label: "Actual operating profit", value: money(fin.profit), badge: "Margin " + pct(fin.margin), tone: fin.profit >= 0 ? "done" : "overdue", note: "Revenue − actual costs − operating expenses", icon: "circle-check", href: "#/dev/finance", testid: "kpi-profit" }),
     ], "Finance figures") +
     '<section class="split">' +
     card({ title: "Developer profit allocation", note: "30% of distributable profit (commercial basis), " + h(periodCaption()) + ". Not the same figure as actual operating profit.", action: linkTo("Distributions", "#/dev/finance?tab=distributions"), body:

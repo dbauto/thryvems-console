@@ -4,6 +4,7 @@
  * ViewChips, Badge, KeyFacts, LifecycleTrack, Alert, EmptyState, Sheet, Dialog, toast.
  */
 import { safe, money } from "./util.js";
+import { icon as lucideIcon } from "./icons.js";
 
 export const h = safe;
 
@@ -34,7 +35,7 @@ export function pageHeader({ title, description, crumbs, actions }) {
 
 /** Card style B: icon tile, status badge, big value, small label. Links when href is given. */
 export function figure({ label, value, badge: b, tone, icon, href, note, testid }) {
-  const inner = '<div class="metric-top"><span class="metric-icon" aria-hidden="true">' + h(icon || "▦") + "</span>" + (b ? badge(b, tone) : "") + "</div>" +
+  const inner = '<div class="metric-top"><span class="metric-icon" aria-hidden="true">' + lucideIcon(icon || "layout-dashboard") + "</span>" + (b ? badge(b, tone) : "") + "</div>" +
     "<div><strong>" + h(value) + '</strong><div class="metric-label">' + h(label) + "</div>" + (note ? '<div class="metric-note">' + h(note) + "</div>" : "") + "</div>";
   const tid = testid ? ' data-testid="' + h(testid) + '"' : "";
   return href ? '<a class="metric metric-link" href="' + h(href) + '"' + tid + ">" + inner + "</a>" : '<article class="metric"' + tid + ">" + inner + "</article>";

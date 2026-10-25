@@ -11,8 +11,8 @@
 /* ---- Console completion (24 Oct 2026): components reuse the existing tokens only. ---- */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .skip-link{position:absolute;left:8px;top:-40px;background:var(--card);color:var(--foreground);padding:8px 12px;border-radius:6px;z-index:20}.skip-link:focus{top:8px}
-.nav a{text-decoration:none;font-size:14px}.nav-count{margin-left:auto;min-width:20px;height:20px;border-radius:10px;background:var(--primary);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
-.sidebar-footer .footer-link{display:block;color:var(--console-text);text-decoration:none;padding:6px 0;margin-bottom:8px;font-size:13px}.sidebar-footer .footer-link:hover,.sidebar-footer .footer-link.active{color:#fff}
+.nav a{text-decoration:none;font-size:14px}.nav-count{margin-left:auto;min-width:20px;height:20px;border-radius:10px;background:var(--primary);color:white;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.sidebar-footer .footer-link{display:block;color:var(--console-text);text-decoration:none;padding:6px 0;margin-bottom:8px;font-size:13px}.sidebar-footer .footer-link:hover,.sidebar-footer .footer-link.active{color:white}
 .segment a{text-decoration:none;display:inline-flex;align-items:center}
 .mobile-nav a{border:1px solid var(--border);background:var(--card);border-radius:6px;white-space:nowrap;padding:8px 11px;color:var(--foreground);text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
 .brand-mark.small{width:30px;height:30px}
@@ -114,11 +114,11 @@ main h1[tabindex="-1"]:focus{outline:none}
 .sidebar .brand{min-height:42px}
 .sidebar .nav{overflow-y:auto;min-height:0;scrollbar-width:thin}
 .sidebar .nav a{gap:11px;min-height:38px}
-.sidebar .nav a[aria-current=page]{background:var(--console-raised);color:#fff;font-weight:600}
-.sidebar .nav a:hover:not([aria-current=page]){background:var(--console-raised);color:#fff}
+.sidebar .nav a[aria-current=page]{background:var(--console-raised);color:white;font-weight:600}
+.sidebar .nav a:hover:not([aria-current=page]){background:var(--console-raised);color:white}
 .sidebar-tools{margin-top:auto;padding:0 4px}
 .sidebar-pin{width:100%;min-height:36px;border:1px solid var(--console-raised);border-radius:var(--radius);background:transparent;color:var(--console-text);display:flex;gap:10px;align-items:center;padding:8px 10px;text-align:left}
-.sidebar-pin:hover{color:#fff;background:var(--console-raised)}
+.sidebar-pin:hover{color:white;background:var(--console-raised)}
 .sidebar-footer{margin-top:0}
 .sidebar.collapsed{width:72px;flex:0 0 72px;align-items:stretch}
 .sidebar.collapsed .brand{justify-content:center;padding:4px 0}

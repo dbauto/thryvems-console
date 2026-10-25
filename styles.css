@@ -152,3 +152,14 @@ main h1[tabindex="-1"]:focus{outline:none}
 .product-symbol{display:block;flex:none;width:34px;height:28px;object-fit:contain}
 .topbar .product-symbol.small{width:30px;height:24px}
 .sidebar.collapsed .brand-details{display:none}
+
+/* PR #3 reconciliation: retain its lettered wordmark, not the duplicate hand-drawn mark.
+   Brand-only hues match the canonical ThryveMS artwork; status colours stay unchanged. */
+.brand-name{display:inline-flex;align-items:baseline;gap:6px;font-weight:700;white-space:nowrap}
+.wordmark{font-family:"Public Sans",system-ui,sans-serif;font-weight:700;letter-spacing:-.01em}
+.wordmark-ms{color:#0aa58f}
+.sidebar .wordmark{color:white}
+.sidebar .wordmark-ms,:root.dark .wordmark-ms{color:#4fdcb0}
+.topbar .brand-name{font-size:14px}
+.brand-ws{font-weight:500;color:var(--muted-foreground);font-size:14px}
+.sidebar.collapsed .brand-name{display:none}

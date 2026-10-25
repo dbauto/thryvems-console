@@ -9,6 +9,10 @@ test("Developer dashboard uses pinned Lucide SVGs instead of Unicode placeholder
   await expect(page.locator(".sidebar .nav-icon svg.lucide-icon")).toHaveCount(11);
   await expect(page.locator(".sidebar img.product-symbol")).toHaveAttribute("src", "./assets/thryvems-mark.svg");
   expect((await page.request.get("/assets/thryvems-mark.svg")).ok()).toBeTruthy();
+  expect((await page.request.get("/fonts/public-sans-latin-400-normal.woff2")).ok()).toBeTruthy();
+  expect((await page.request.get("/fonts/public-sans-latin-600-normal.woff2")).ok()).toBeTruthy();
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.fonts.check('600 20px "Public Sans"'))).toBeTruthy();
   expect(await page.locator(".metric-icon svg.lucide-icon").count()).toBeGreaterThanOrEqual(12);
   const nav = await page.locator(".sidebar .nav").innerText();
   expect(nav).not.toMatch(/[▦▤▣⇧✉≡⚙⚑⌂♙]/);

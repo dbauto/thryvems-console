@@ -143,3 +143,8 @@ main h1[tabindex="-1"]:focus{outline:none}
 .preview-note{display:flex;align-items:flex-start;gap:10px;line-height:1.5}
 @media(max-width:767px){.sidebar{display:none}.content>.page-header h1{font-size:1.5rem}.sidebar-tools{display:none}}
 @media(prefers-reduced-motion:reduce){.sidebar,.metric-link{transition:none}}
+
+/* Canonical ThryveMS mark sourced from the main application; never synthesize brand artwork. */
+.product-symbol{display:block;flex:none;width:34px;height:28px;object-fit:contain}
+.topbar .product-symbol.small{width:30px;height:24px}
+.sidebar.collapsed .brand-details{display:none}

@@ -96,3 +96,50 @@ form.card-body{display:flex;flex-direction:column;gap:14px;align-items:flex-star
 main h1[tabindex="-1"]:focus{outline:none}
 [hidden]{display:none!important}
 .content{width:100%;min-width:0}.content>*{min-width:0;max-width:100%}.view-chips{overflow-x:auto;max-width:100%;scrollbar-width:thin}
+
+
+/*
+ * Console UI revision — ThryveMS UI-GUIDELINES §§2–5.
+ * ReUI dashboard-1 / stats-1 layout references inform information hierarchy only.
+ * Every surface, accent, status, spacing and type treatment uses existing ThryveMS values.
+ * Icons are locally built from lucide-static; no emoji or glyph icon font.
+ */
+.lucide-icon{display:block;width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav-icon{display:flex;align-items:center;justify-content:center;flex:0 0 20px}
+.nav-icon .lucide-icon{width:18px;height:18px}
+.metric-icon .lucide-icon{width:20px;height:20px}
+.sidebar-pin .lucide-icon{width:18px;height:18px}
+.preview-note>.lucide-icon{width:18px;height:18px;margin-top:1px}
+.sidebar{transition:width .18s ease,flex-basis .18s ease}
+.sidebar .brand{min-height:42px}
+.sidebar .nav{overflow-y:auto;min-height:0;scrollbar-width:thin}
+.sidebar .nav a{gap:11px;min-height:38px}
+.sidebar .nav a[aria-current=page]{background:var(--console-raised);color:#fff;font-weight:600}
+.sidebar .nav a:hover:not([aria-current=page]){background:var(--console-raised);color:#fff}
+.sidebar-tools{margin-top:auto;padding:0 4px}
+.sidebar-pin{width:100%;min-height:36px;border:1px solid var(--console-raised);border-radius:var(--radius);background:transparent;color:var(--console-text);display:flex;gap:10px;align-items:center;padding:8px 10px;text-align:left}
+.sidebar-pin:hover{color:#fff;background:var(--console-raised)}
+.sidebar-footer{margin-top:0}
+.sidebar.collapsed{width:72px;flex:0 0 72px;align-items:stretch}
+.sidebar.collapsed .brand{justify-content:center;padding:4px 0}
+.sidebar.collapsed .brand>span:not(.brand-mark),.sidebar.collapsed .nav-text,.sidebar.collapsed .nav-count,.sidebar.collapsed .nav-label,.sidebar.collapsed .sidebar-footer{display:none}
+.sidebar.collapsed .nav a{justify-content:center;padding-left:0;padding-right:0}
+.sidebar.collapsed .sidebar-pin{justify-content:center;padding:8px}
+.sidebar.collapsed .sidebar-tools{margin-top:auto}
+.topbar{gap:16px;align-items:center}
+.content>.page-header{margin-bottom:0}
+.content>.page-header h1{font-size:1.75rem;font-weight:600}
+.section-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin:4px 0 -7px;padding-bottom:10px;border-bottom:1px solid var(--rule-soft);font-size:.9375rem;font-weight:600}
+.metrics{gap:16px}
+.metric{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);min-width:0}
+.metric .metric-top{align-items:flex-start}
+.metric .metric-label{line-height:1.5}
+.metric .metric-note{line-height:1.5}
+.metric-link{transition:background .15s ease,border-color .15s ease}
+.metric-link:hover{background:var(--card);border-color:var(--input)}
+.card{border-radius:var(--radius);box-shadow:none}
+.card-head{min-height:59px}
+.card .rule-row{gap:12px}
+.preview-note{display:flex;align-items:flex-start;gap:10px;line-height:1.5}
+@media(max-width:767px){.sidebar{display:none}.content>.page-header h1{font-size:1.5rem}.sidebar-tools{display:none}}
+@media(prefers-reduced-motion:reduce){.sidebar,.metric-link{transition:none}}

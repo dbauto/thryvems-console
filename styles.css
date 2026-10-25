@@ -96,3 +96,11 @@ form.card-body{display:flex;flex-direction:column;gap:14px;align-items:flex-star
 main h1[tabindex="-1"]:focus{outline:none}
 [hidden]{display:none!important}
 .content{width:100%;min-width:0}.content>*{min-width:0;max-width:100%}.view-chips{overflow-x:auto;max-width:100%;scrollbar-width:thin}
+/* ThryveMS product mark and wordmark (owner reference, 25 Oct 2026). Separate from status colours and client branding. */
+.product-mark{flex:none;display:block}
+.brand-name{display:flex;align-items:baseline;gap:6px;font-weight:700}
+.sidebar .brand-name{font-size:19px;letter-spacing:-.01em}
+.wordmark{color:inherit;font-weight:700;letter-spacing:-.01em}
+.wordmark-ms{color:#0f8f6c}
+.sidebar .wordmark{color:#fff}.sidebar .wordmark-ms,:root.dark .wordmark-ms{color:#4fdcb0}
+.topbar .brand-name{font-size:16px}.brand-ws{font-weight:500;color:var(--muted-foreground);font-size:14px}

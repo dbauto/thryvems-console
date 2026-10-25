@@ -7,6 +7,7 @@ import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting 
 import { PARTNERS } from "./seed.js";
 import { h, closeOverlay, getTableState, loadingState, errorState, markDirty, toast } from "./ui.js";
 import { registry } from "./registry.js";
+import { productMark, wordmark } from "./logo.js";
 import * as devOverview from "./pages/dev-overview.js";
 import * as devOrgs from "./pages/dev-orgs.js";
 import * as devDeploy from "./pages/dev-deploy.js";
@@ -89,11 +90,11 @@ export function render() {
   const menu = showNav ? nav.map(([id, label, icon, href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + icon + "</span>" + h(label) + devCount(id) + "</a>").join("") : "";
   const focus = captureFocus();
   document.getElementById("app").innerHTML =
-    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar" aria-label="Console navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span><strong>' + title + "</strong><small>" + h(sub) + "</small></span></div>" +
+    '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar" aria-label="Console navigation"><div class="brand">' + productMark(36) + '<span><strong class="brand-name">' + wordmark() + '<span class="sr-only"> ' + (ws === "biz" ? "Business" : "Platform") + "</span></strong><small>" + h(sub) + "</small></span></div>" +
     (showNav ? '<nav class="nav" aria-label="' + (ws === "biz" ? "Business" : "Developer") + ' menu"><div class="nav-label">' + (ws === "biz" ? "Business" : "Platform") + "</div>" + menu + "</nav>" : '<div class="nav"></div>') +
     '<div class="sidebar-footer">' + (ws === "biz" && showNav ? '<a href="#/biz/settings" class="footer-link' + (active === "settings" ? " active" : "") + '"' + (active === "settings" ? ' aria-current="page"' : "") + '>⚙ Business settings</a>' : "") +
     "ThryveMS console preview<br/>Synthetic data · 24 Oct 2026<br/>No production connection</div></aside>" +
-    '<div class="workspace"><header class="topbar"><div class="topbar-left"><span class="brand-mark small" aria-hidden="true">T</span><strong>' + h(title) + "</strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
+    '<div class="workspace"><header class="topbar"><div class="topbar-left">' + productMark(30) + '<strong class="brand-name">' + wordmark() + ' <span class="brand-ws">' + (ws === "biz" ? "Business" : "Platform") + "</span></strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
     '<div class="topbar-right">' + previewControls(ws) + "</div></header>" +
     (showNav ? '<nav class="mobile-nav" aria-label="Console pages">' + nav.map(([id, label, , href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + ">" + h(label) + "</a>").join("") + (ws === "biz" ? '<a href="#/biz/settings" class="' + (active === "settings" ? "active" : "") + '">Business settings</a>' : "") + "</nav>" : "") +
     '<main class="content" id="page" tabindex="-1">' + previewNote(ws) + content + "</main></div></div>" + '<div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>';

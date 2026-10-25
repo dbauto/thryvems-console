@@ -18,6 +18,7 @@
 
 ## Changes
 
+- Loads the same **Public Sans** weights (400/500/600/700) from the pinned @fontsource package at build time, rather than relying on an installed system font. No external runtime font service.
 - Use **Lucide** (pinned `lucide-static@0.544.0`) for icons in both workspace navigation trees and all figure cards. The build emits only the selected SVG symbols; no CDN requests, icon fonts or emoji substitutions. Icons are decorative and have `aria-hidden`; nav links preserve explicit text/aria labels.
 - Uses the **existing official vector mark** copied from the canonical frontend `app/public/thryvems-mark.svg` instead of the placeholder letter T. A separate console sidebar logo PR #3 is open and must be reconciled without discarding the approved official asset. Sidebar collapses to icons and expands on demand; mobile continues using the existing accessible mobile navigation. Does not change the menu, its order or wording.
 - Align page hierarchy, sections, KPI cards, compact rows, borders, status design, responsive behavior and focus with existing ThryveMS token surfaces.

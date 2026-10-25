@@ -17,6 +17,14 @@ mkdirSync("dist", { recursive: true });
 for (const file of ["index.html", "styles.css"]) cpSync(resolve(file), resolve("dist", file));
 cpSync(resolve("src"), resolve("dist", "src"), { recursive: true });
 cpSync(resolve("assets"), resolve("dist", "assets"), { recursive: true });
+// Use the exact Public Sans font family from the canonical ThryveMS frontend.
+mkdirSync(resolve("dist", "fonts"), { recursive: true });
+for (const weight of [400, 500, 600, 700]) {
+  const name = "public-sans-latin-" + weight + "-normal.woff2";
+  const input = resolve("node_modules", "@fontsource", "public-sans", "files", name);
+  if (!existsSync(input)) throw Error("Public Sans font asset missing: " + name);
+  cpSync(input, resolve("dist", "fonts", name));
+}
 // Generate only the Lucide glyphs used by this product (no icon font / full sprite).
 const symbols = ICON_NAMES.map((name) => {
   const source = resolve("node_modules", "lucide-static", "icons", name + ".svg");

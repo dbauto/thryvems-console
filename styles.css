@@ -1,3 +1,7 @@
+@font-face{font-family:"Public Sans";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/public-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Public Sans";font-style:normal;font-weight:500;font-display:swap;src:url("./fonts/public-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Public Sans";font-style:normal;font-weight:600;font-display:swap;src:url("./fonts/public-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Public Sans";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/public-sans-latin-700-normal.woff2") format("woff2")}
 /* Matches the ThryveMS console colour, card, typography and status system. */
 :root{--background:#f5f6f7;--foreground:#18202b;--card:#fff;--muted-foreground:#4a5463;--primary:#2b3a9e;--primary-hover:#1f2a78;--border:#e2e5e9;--rule-soft:#eef0f2;--secondary:#eef0f2;--accent:#eceefb;--input:#cdd2d8;--done:#17734a;--done-tint:#e7f4ed;--soon:#8f5200;--soon-tint:#fbf1e1;--overdue:#b3261e;--overdue-tint:#fbeae8;--draft:#4a5463;--draft-tint:#eef0f2;--console:#18202b;--console-raised:#2f3a49;--console-text:#b7beca;--radius:8px;color-scheme:light}
 :root.dark{--background:#0f141a;--foreground:#e7eaef;--card:#171d25;--muted-foreground:#9ba5b3;--border:#2a3340;--rule-soft:#212934;--secondary:#232b36;--accent:#222a46;--input:#3a4553;--done:#4cc38a;--done-tint:#13281f;--soon:#e3a33b;--soon-tint:#2b2213;--overdue:#f2766b;--overdue-tint:#321a18;--draft:#9ba5b3;--draft-tint:#232b36;color-scheme:dark}

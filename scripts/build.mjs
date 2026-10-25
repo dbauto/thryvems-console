@@ -16,6 +16,7 @@ rmSync("dist", { recursive: true, force: true });
 mkdirSync("dist", { recursive: true });
 for (const file of ["index.html", "styles.css"]) cpSync(resolve(file), resolve("dist", file));
 cpSync(resolve("src"), resolve("dist", "src"), { recursive: true });
+cpSync(resolve("assets"), resolve("dist", "assets"), { recursive: true });
 // Generate only the Lucide glyphs used by this product (no icon font / full sprite).
 const symbols = ICON_NAMES.map((name) => {
   const source = resolve("node_modules", "lucide-static", "icons", name + ".svg");

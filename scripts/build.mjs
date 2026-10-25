@@ -20,7 +20,7 @@ cpSync(resolve("src"), resolve("dist", "src"), { recursive: true });
 const symbols = ICON_NAMES.map((name) => {
   const source = resolve("node_modules", "lucide-static", "icons", name + ".svg");
   if (!existsSync(source)) throw Error("Missing pinned Lucide icon: " + name);
-  const match = readFileSync(source, "utf8").match(/<svg\\b[^>]*>([\\s\\S]*?)<\\/svg>/);
+  const match = readFileSync(source, "utf8").match(/<svg\b[^>]*>([\s\S]*?)<\/svg>/);
   if (!match) throw Error("Invalid Lucide SVG: " + name);
   return '<symbol id="' + name + '" viewBox="0 0 24 24">' + match[1] + '</symbol>';
 });

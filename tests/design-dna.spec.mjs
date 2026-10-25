@@ -8,6 +8,9 @@ test("Developer dashboard uses pinned Lucide SVGs instead of Unicode placeholder
   expect(await sprite.text()).toContain('id="layout-dashboard"');
   await expect(page.locator(".sidebar .nav-icon svg.lucide-icon")).toHaveCount(11);
   await expect(page.locator(".sidebar img.product-symbol")).toHaveAttribute("src", "./assets/thryvems-mark.svg");
+  // Reconciled PR #3 wordmark; keep the official product mark, not PR #3's duplicate painted SVG.
+  await expect(page.locator(".sidebar .wordmark")).toHaveText("ThryveMS");
+  await expect(page.locator(".topbar .wordmark")).toHaveText("ThryveMS");
   expect((await page.request.get("/assets/thryvems-mark.svg")).ok()).toBeTruthy();
   expect((await page.request.get("/fonts/public-sans-latin-400-normal.woff2")).ok()).toBeTruthy();
   expect((await page.request.get("/fonts/public-sans-latin-600-normal.woff2")).ok()).toBeTruthy();

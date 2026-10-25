@@ -89,7 +89,7 @@ export function render() {
   const showNav = allowed;
   const title = ws === "biz" ? "ThryveMS Business" : "ThryveMS Platform";
   const sub = ws === "biz" ? (partnerOf(businessPartnerId())?.label || "") + " · Business management" : "Developer Console";
-  const menu = showNav ? nav.map(([id, label, icon, href]) => '<a href="' + href + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + icon + "</span>" + h(label) + devCount(id) + "</a>").join("") : "";
+  const menu = showNav ? nav.map(([id, label, iconName, href]) => '<a href="' + href + '" title="' + h(label) + '" aria-label="' + h(label) + '" class="' + (active === id ? "active" : "") + '"' + (active === id ? ' aria-current="page"' : "") + '><span class="nav-icon" aria-hidden="true">' + lucideIcon(iconName) + '</span><span class="nav-text">' + h(label) + '</span>' + devCount(id) + "</a>").join("") : "";
   const focus = captureFocus();
   document.getElementById("app").innerHTML =
     '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><aside class="sidebar' + (sidebarCollapsed ? ' collapsed' : '') + '" aria-label="Console navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span><strong>' + title + "</strong><small>" + h(sub) + "</small></span></div>" +

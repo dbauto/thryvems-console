@@ -1,4 +1,5 @@
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { ICON_NAMES } from "../src/icons.js";
 import { join, resolve } from "node:path";
 /** Copies the static preview (no bundler, no dependencies) to dist/ after checking references. */
 const source = readFileSync("index.html", "utf8");
@@ -15,4 +16,14 @@ rmSync("dist", { recursive: true, force: true });
 mkdirSync("dist", { recursive: true });
 for (const file of ["index.html", "styles.css"]) cpSync(resolve(file), resolve("dist", file));
 cpSync(resolve("src"), resolve("dist", "src"), { recursive: true });
-console.log("Built static ThryveMS console preview in dist/ (" + files.length + " modules)");
+// Generate only the Lucide glyphs used by this product (no icon font / full sprite).
+const symbols = ICON_NAMES.map((name) => {
+  const source = resolve("node_modules", "lucide-static", "icons", name + ".svg");
+  if (!existsSync(source)) throw Error("Missing pinned Lucide icon: " + name);
+  const match = readFileSync(source, "utf8").match(/<svg\\b[^>]*>([\\s\\S]*?)<\\/svg>/);
+  if (!match) throw Error("Invalid Lucide SVG: " + name);
+  return '<symbol id="' + name + '" viewBox="0 0 24 24">' + match[1] + '</symbol>';
+});
+writeFileSync(resolve("dist", "icons.svg"), '<svg xmlns="http://www.w3.org/2000/svg">' + symbols.join("") + '</svg>');
+
+console.log("Built static ThryveMS console preview in dist/ (" + files.length + " modules, " + ICON_NAMES.length + " Lucide icons)");

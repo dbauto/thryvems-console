@@ -1,9 +1,9 @@
 /**
- * ThryveMS platform console preview: shell, router and event wiring.
- * The "Preview, view as" control simulates roles for synthetic testing. It is not authentication.
- * Production access: Cloudflare Access + WorkOS passkeys (plan v3 D9) and server-side authorization.
+ * ThryveMS Console: shell, router, sign-in and event wiring.
+ * Sign-in here is front-end only until the backend auth lands (plan v3 D9: Cloudflare Access + WorkOS
+ * passkeys, server-side authorization). It selects the signed-in account's role; it is not a security boundary.
  */
-import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting } from "./store.js";
+import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting, getData } from "./store.js";
 import { PARTNERS } from "./seed.js";
 import { h, closeOverlay, getTableState, loadingState, errorState, markDirty, toast } from "./ui.js";
 import { icon as lucideIcon } from "./icons.js";
@@ -89,6 +89,8 @@ export function render() {
   const ui = getUi();
   document.documentElement.classList.toggle("dark", ui.theme === "dark");
   const r = parseRoute();
+  if (!ui.signedIn) { renderLogin(); return; }
+  if (r.ws === "login") { location.replace(ui.role === "partner" ? "#/biz" : "#/dev"); return; }
   // Default landing per role.
   if (!r.ws) { location.replace(ui.role === "partner" ? "#/biz" : "#/dev"); return; }
   const role = ui.role;
@@ -97,7 +99,7 @@ export function render() {
   const allowed = role === "client" ? false : ws === "dev" ? role === "developer" : ws === "biz";
   if (allowed) {
     if (ui.dataState === "Loading") { content = loadingState("Loading " + (ws === "dev" ? "Developer Console" : "Business workspace")); active = (ws === "dev" ? devPage : bizPage)({ ...r, dry: true })[0]; }
-    else if (ui.dataState === "Error") { content = errorState("This page couldn't load", "The preview is set to show the error state. Choose Normal under Data state to see the page."); active = (ws === "dev" ? devPage : bizPage)(r)[0]; }
+    else if (ui.dataState === "Error") { content = errorState("This page couldn't load", "Something went wrong while loading this page. Try again."); active = (ws === "dev" ? devPage : bizPage)(r)[0]; }
     else { [active, content] = (ws === "dev" ? devPage : bizPage)(r); }
   }
   if (!content) content = shared.notFound();
@@ -118,11 +120,10 @@ export function render() {
     '<a class="skip-link" href="#page">Skip to content</a><div class="app-shell"><div class="drawer-backdrop' + (drawerOpen ? " open" : "") + '" data-act="close-drawer"></div><aside id="console-sidebar" class="sidebar' + (sidebarCollapsed ? ' collapsed' : '') + (drawerOpen ? ' drawer-open' : '') + '" aria-label="Console navigation"><div class="brand"><img class="product-symbol" src="./assets/thryvems-mark.png" width="34" height="28" alt="" /><span class="brand-details"><strong class="brand-name" aria-label="' + h(title) + '">' + wordmark() + "</strong><small>" + h(sub) + "</small></span></div>" +
     (showNav ? '<nav class="nav" aria-label="' + (ws === "biz" ? "Business" : "Developer") + ' menu"><div class="nav-label">' + (ws === "biz" ? "Business" : "Platform") + "</div>" + menu + "</nav>" : '<div class="nav"></div>') +
     '<div class="sidebar-tools"><button type="button" class="sidebar-pin" data-act="toggle-sidebar" aria-label="' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '" aria-expanded="' + (!sidebarCollapsed) + '">' + lucideIcon(sidebarCollapsed ? "panel-left-open" : "panel-left-close") + '<span class="nav-text">' + (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') + '</span></button></div>' +
-    '<div class="sidebar-footer">' +
-    "ThryveMS console preview<br/>Synthetic data · 24 Oct 2026<br/>No production connection</div></aside>" +
+    '<div class="sidebar-footer">' + accountCard() + "</div></aside>" +
     '<div class="workspace"><header class="topbar"><div class="topbar-left">' + (showNav ? '<button type="button" class="btn btn-small mobile-toggle" data-act="open-drawer" aria-controls="console-sidebar" aria-expanded="' + drawerOpen + '" aria-label="Open menu">' + lucideIcon("menu") + "</button>" : "") + '<img class="product-symbol small" src="./assets/thryvems-mark.png" width="30" height="24" alt="" /><strong class="brand-name" aria-label="' + h(title) + '">' + wordmark() + ' <span class="brand-ws">' + (ws === "biz" ? "Business" : "Platform") + "</span></strong>" + (isInspecting() && ws === "biz" ? " " + '<span class="pill progress">Inspection view</span>' : "") + "</div>" +
-    '<div class="topbar-right">' + previewControls(ws) + "</div></header>" +
-    '<main class="content" id="page" tabindex="-1">' + previewNote(ws) + content + "</main></div></div>" + '<div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>';
+    '<div class="topbar-right">' + topControls(ws) + "</div></header>" +
+    '<main class="content" id="page" tabindex="-1">' + content + "</main></div></div>" + '<div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>';
   restoreFocus(focus, r.path + "?" + r.query.toString());
 }
 function devCount(id) {
@@ -130,26 +131,68 @@ function devCount(id) {
   const n = registry.counts?.[id]?.();
   return n ? '<span class="nav-count" aria-label="' + n + ' need attention">' + n + "</span>" : "";
 }
-function previewNote(ws) {
-  return '<div class="preview-note" role="note"><span aria-hidden="true">ⓘ</span><div><strong>Preview with synthetic data.</strong> ' +
-    (ws === "biz" ? "Commercial figures for assigned clients only. Developer infrastructure costs are never shown here. " : "Cloud provisioning, sandboxes, releases and provider data are simulated or unavailable. ") +
-    "Changes update this browser only; nothing is deployed, invoiced, paid or sent.</div></div>";
-}
-function previewControls(ws) {
+export const ACCOUNTS = [
+  { email: "owner@platform.example", role: "developer", name: "Platform owner", title: "Developer" },
+  { email: "partner-a@partners.example", role: "partner", partner: "partner-a", name: "Mara Santos", title: "Business partner · Partner A" },
+  { email: "partner-b@partners.example", role: "partner", partner: "partner-b", name: "Jun Reyes", title: "Business partner · Partner B" },
+];
+const PASSWORD = "ThryveMS-2026";
+function currentAccount() {
   const ui = getUi();
-  const roleVal = ui.role === "partner" ? ui.partner : ui.role;
-  let html = '<div class="field compact"><label for="preview-role">Preview, view as</label><select id="preview-role" data-change="preview-role">' +
-    '<option value="developer"' + (roleVal === "developer" ? " selected" : "") + ">Platform owner (Developer)</option>" +
-    PARTNERS.map((p) => '<option value="' + p.id + '"' + (roleVal === p.id ? " selected" : "") + ">" + h(p.label) + " (Business partner)</option>").join("") +
-    '<option value="client"' + (roleVal === "client" ? " selected" : "") + ">Client user (no console access)</option></select></div>";
+  return ACCOUNTS.find((a) => a.email === ui.email) || ACCOUNTS.find((a) => a.role === ui.role && (a.role !== "partner" || a.partner === ui.partner)) || ACCOUNTS[0];
+}
+const initials = (n) => n.split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase();
+function accountCard() {
+  const a = currentAccount();
+  return '<div class="account-card"><span class="avatar" aria-hidden="true">' + h(initials(a.name)) + '</span><span class="account-text"><strong>' + h(a.name) + "</strong><small>" + h(a.title) + "</small></span></div>";
+}
+function topControls(ws) {
+  const ui = getUi();
+  let html = "";
   if (ui.role === "developer") {
     html += '<div class="segment" role="group" aria-label="Workspace"><a href="#/dev" class="' + (ws === "dev" ? "active" : "") + '"' + (ws === "dev" ? ' aria-current="true"' : "") + '>Developer</a><a href="#/biz" class="' + (ws === "biz" ? "active" : "") + '"' + (ws === "biz" ? ' aria-current="true"' : "") + ">Business</a></div>";
     if (ws === "biz") html += '<div class="field compact"><label for="inspect-partner">Inspect as</label><select id="inspect-partner" data-change="inspect-partner">' + PARTNERS.map((p) => '<option value="' + p.id + '"' + (ui.inspect === p.id ? " selected" : "") + ">" + h(p.label) + "</option>").join("") + "</select></div>";
   }
-  html += '<div class="field compact"><label for="data-state">Data state</label><select id="data-state" data-change="data-state">' + ["Normal", "Loading", "Empty", "Error"].map((s) => '<option' + (ui.dataState === s ? " selected" : "") + ">" + s + "</option>").join("") + "</select></div>";
-  html += '<button type="button" class="btn btn-small" data-act="theme" aria-label="Toggle light and dark appearance">' + (ui.theme === "dark" ? "Light view" : "Dark view") + "</button>";
+  const a = currentAccount();
+  html += '<button type="button" class="btn btn-small btn-quiet icon-btn" data-act="theme" aria-label="Toggle light and dark appearance" title="' + (ui.theme === "dark" ? "Light appearance" : "Dark appearance") + '">' + lucideIcon(ui.theme === "dark" ? "sun" : "moon") + "</button>";
+  html += '<details class="account-menu"><summary aria-label="Account menu"><span class="avatar" aria-hidden="true">' + h(initials(a.name)) + '</span></summary><div class="account-pop" role="menu"><div class="account-who"><strong>' + h(a.name) + "</strong><small>" + h(a.email) + "</small><small>" + h(a.title) + '</small></div><button type="button" role="menuitem" class="btn btn-small" data-act="sign-out">' + lucideIcon("log-out") + " Sign out</button></div></details>";
   return html;
 }
+let loginState = { error: "", info: "", email: "" };
+function renderLogin() {
+  const ui = getUi();
+  document.documentElement.classList.toggle("dark", ui.theme === "dark");
+  if (location.hash !== "#/login") history.replaceState(null, "", "#/login");
+  document.title = "Sign in · ThryveMS Console";
+  document.getElementById("app").innerHTML =
+    '<main class="login-shell" id="page"><div class="login-card"><div class="login-brand"><img class="product-symbol" src="./assets/thryvems-mark.png" width="40" height="32" alt="" />' + wordmark() + ' <span class="brand-ws">Console</span></div>' +
+    '<h1>Sign in</h1><p class="muted">Platform owner and Business Partner accounts only.</p>' +
+    (loginState.error ? '<div class="alert alert-danger" role="alert" id="login-error">' + h(loginState.error) + "</div>" : "") +
+    (loginState.info ? '<div class="alert alert-info" role="status">' + h(loginState.info) + "</div>" : "") +
+    '<form class="login-form" data-login novalidate><div class="field"><label for="login-email">Work email</label><input id="login-email" name="email" type="email" autocomplete="username" required value="' + h(loginState.email) + '" /></div>' +
+    '<div class="field"><div class="label-row"><label for="login-password">Password</label><button type="button" class="table-link small" data-act="forgot-password">Forgot password?</button></div><input id="login-password" name="password" type="password" autocomplete="current-password" required /></div>' +
+    '<label class="check"><input type="checkbox" name="remember" checked /> Keep me signed in on this device</label>' +
+    '<button type="submit" class="btn btn-primary login-submit">Sign in</button></form>' +
+    '<p class="login-foot">Client users sign in to their own ThryveMS workspace, not this console.</p></div></main>';
+  document.getElementById(loginState.error ? "login-password" : "login-email")?.focus();
+}
+document.addEventListener("submit", (e) => {
+  const f = e.target.closest("[data-login]");
+  if (!f) return;
+  e.preventDefault();
+  const email = String(f.email.value || "").trim().toLowerCase();
+  const pw = String(f.password.value || "");
+  loginState = { error: "", info: "", email };
+  if (!email || !pw) { loginState.error = "Enter your email and password."; renderLogin(); return; }
+  const acct = ACCOUNTS.find((a) => a.email === email);
+  if (!acct || pw !== PASSWORD) { loginState.error = "We couldn't sign you in. Check your email and password."; renderLogin(); return; }
+  const ui = getUi();
+  ui.signedIn = true; ui.email = acct.email; ui.role = acct.role; if (acct.partner) ui.partner = acct.partner;
+  saveUi(); loginState = { error: "", info: "", email: "" };
+  document.title = "ThryveMS Console";
+  location.hash = acct.role === "partner" ? "#/biz" : "#/dev";
+  render();
+});
 
 function captureFocus() {
   const el = document.activeElement;
@@ -177,6 +220,8 @@ const builtins = {
   backdrop: (el, e) => { if (e.target === el) closeOverlay(); },
   discard: () => closeOverlay(true),
   "keep-editing": () => { const w = document.querySelector(".dirty-warning"); if (w) w.hidden = true; document.querySelector(".modal-content input,.modal-content textarea,.modal-content select")?.focus(); },
+  "sign-out": () => { const ui = getUi(); ui.signedIn = false; ui.email = ""; saveUi(); closeOverlay(true); loginState = { error: "", info: "You've been signed out.", email: "" }; renderLogin(); },
+  "forgot-password": () => { const v = document.getElementById("login-email")?.value || ""; loginState = { error: "", info: "If an account exists for that email, a reset link will be sent. Ask the platform owner if you don't receive it.", email: v }; renderLogin(); },
   theme: () => { const ui = getUi(); ui.theme = ui.theme === "dark" ? "light" : "dark"; saveUi(); render(); },
   "open-drawer": () => { drawerOpen = true; render(); document.querySelector(".sidebar .nav a")?.focus(); },
   "close-drawer": () => { drawerOpen = false; render(); document.querySelector(".mobile-toggle")?.focus(); },
@@ -217,17 +262,7 @@ document.addEventListener("change", (e) => {
   if (t.dataset.tablePer) { const st = getTableState(t.dataset.tablePer); st.per = Number(t.value); st.page = 0; render(); return; }
   if (t.closest("[data-form]")) { markDirty(true); }
   const key = t.dataset.change;
-  if (key === "preview-role") {
-    const v = t.value;
-    ui.role = v === "developer" ? "developer" : v === "client" ? "client" : "partner";
-    if (v.startsWith("partner-")) ui.partner = v;
-    saveUi(); closeOverlay(true);
-    location.hash = ui.role === "partner" ? "#/biz" : ui.role === "client" ? "#/dev" : "#/dev";
-    render();
-    return;
-  }
   if (key === "inspect-partner") { ui.inspect = t.value; saveUi(); render(); return; }
-  if (key === "data-state") { ui.dataState = t.value; saveUi(); render(); return; }
   if (key && registry.changes[key]) registry.changes[key](t, e);
 });
 document.addEventListener("keydown", (e) => {

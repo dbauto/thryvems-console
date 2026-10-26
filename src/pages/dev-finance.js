@@ -85,7 +85,7 @@ function revenue() {
       ] }) +
     '<h2 class="section-title">Invoices issued in the period</h2>' +
     invoiceTable("fin-invoices", shown, { toolbar: '<div class="filters">' + selectFilter("inv-status", "Payment status", [{ value: "", label: "All statuses" }, "Issued", "Partly paid", "Paid", "Overdue", "Void"].map((x) => (typeof x === "string" ? { value: x, label: x } : x))) + "</div>" }) +
-    '<p class="footer-caption">Invoices here are records in the preview. They are not sent to clients and no payment is collected.</p>';
+    '<p class="footer-caption">Invoices are recorded here. Payments received are recorded against them.</p>';
 }
 
 /* ------------------------------------------------------------------- costs */
@@ -98,7 +98,7 @@ function costs() {
   const entries = d.costs.filter((c) => p.months.includes(c.month) && (!cat || c.category === cat) && (!basis || c.basis === basis) && (!scope || (scope === "shared" ? c.shared : scope === "unallocated" ? c.unallocated : !c.shared && !c.unallocated)));
   const byCat = COST_CATEGORIES.map((c) => ({ c, v: sum(d.costs.filter((x) => p.months.includes(x.month) && x.category === c && x.php != null), "php"), missing: d.costs.filter((x) => p.months.includes(x.month) && x.category === c && x.php == null).length })).filter((x) => x.v || x.missing);
   return '<div class="filters">' + periodFilter() + "</div>" +
-    alertBox("info", "Actual provider costs from the cost ledger (synthetic). Business Partners see the same amounts and categories in Shared profit reporting; provider accounts, credentials and configuration stay in the Developer Console.") +
+    alertBox("info", "Actual provider costs from the cost ledger. Business Partners see the same amounts and categories in Shared profit reporting; provider accounts, credentials and configuration stay in the Developer Console.") +
     figureGrid([
       figure({ label: "Direct (per client)", value: money(k.direct), badge: k.missing.length ? "Incomplete" : "Complete", tone: k.missing.length ? "soon" : "done", note: k.missing.length + " item(s) not available", icon: "▣" }),
       figure({ label: "Shared (split per active user)", value: money(k.shared), icon: "◫" }),
@@ -116,7 +116,7 @@ function costs() {
         { key: "m", label: "Month", sort: (c) => c.month, cell: (c) => h(monthShort(c.month)) },
         { key: "cat", label: "Category", sort: (c) => c.category, cell: (c) => h(c.category) + '<div class="secondary">' + h(c.provider) + "</div>" },
         { key: "scope", label: "Applies to", sort: (c) => (c.shared ? "Shared" : c.unallocated ? "Unallocated" : clientById(c.clientId)?.name || ""), cell: (c) => (c.shared ? badge("Shared", "progress") : c.unallocated ? badge("Unallocated", "draft") : h(clientById(c.clientId)?.name || "")) },
-        { key: "orig", label: "Original", cell: (c) => (c.usd != null ? "USD " + h(c.usd.toFixed(2)) + (c.fx ? '<div class="secondary">@ ' + h(c.fx) + " (synthetic rate)</div>" : "") : '<span class="muted">PHP</span>') },
+        { key: "orig", label: "Original", cell: (c) => (c.usd != null ? "USD " + h(c.usd.toFixed(2)) + (c.fx ? '<div class="secondary">@ ' + h(c.fx) + "</div>" : "") : '<span class="muted">PHP</span>') },
         { key: "php", label: "PHP", sort: (c) => c.php ?? -1, cell: (c) => (c.php == null ? '<span class="muted">Not available</span>' : moneyCell(c.php)) },
         { key: "basis", label: "Basis", sort: (c) => c.basis, cell: (c) => basisBadge(c.basis) },
         { key: "src", label: "Source", cell: (c) => '<span class="small">' + h(c.source) + "</span>" },
@@ -309,7 +309,7 @@ export const actions = {
   "sp-export": () => { const csv = profitCsv(currentPeriod().months).map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n"); window.__lastExport = csv; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "thryvems-shared-profit.csv"; document.body.appendChild(a); a.click(); a.remove(); notify("Statement exported"); },
   "cost-add": () => sheet({ title: "Add cost entry", description: "Manual or estimated actual cost. Reconciled amounts come from provider imports (not connected).", body:
     '<div class="form-grid">' + select("Category", "c-cat", "", COST_CATEGORIES, { placeholder: "Choose a category" }) + input("Provider", "c-prov", "") + select("Month", "c-month", CURRENT_MONTH, MONTHS.map((m) => ({ value: m, label: monthLabel(m) }))) + select("Basis", "c-basis", "Manual", ["Manual", "Estimate"]) +
-    combobox("Applies to", "c-scope", "", ["Shared", "Unallocated", ...getData().clients.filter((c) => ["Live", "Suspended"].includes(c.accountStatus)).map((c) => c.name)], { hint: "Type a client name, Shared or Unallocated." }) + input("Amount (₱)", "c-php", "", { type: "number", min: 0, step: "0.01" }) + "</div>" + input("Source", "c-src", "", { hint: "Where the amount comes from, e.g. 'AWS bill October (synthetic)'." }) + formError(),
+    combobox("Applies to", "c-scope", "", ["Shared", "Unallocated", ...getData().clients.filter((c) => ["Live", "Suspended"].includes(c.accountStatus)).map((c) => c.name)], { hint: "Type a client name, Shared or Unallocated." }) + input("Amount (₱)", "c-php", "", { type: "number", min: 0, step: "0.01" }) + "</div>" + input("Source", "c-src", "", { hint: "Where the amount comes from, e.g. 'AWS bill October'." }) + formError(),
     footer: button("Cancel", "close") + button("Add cost", "cost-save", { cls: "btn-primary", submit: true, primary: true }) }),
   "cost-save": () => {
     const f = formData();

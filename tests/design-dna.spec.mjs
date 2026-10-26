@@ -61,8 +61,8 @@ test("Sidebar shows approved sub-pages for the active menu group", async ({ page
   await sub.filter({ hasText: "Distributions" }).click();
   await expect(page).toHaveURL(/tab=distributions/);
   await expect(sub.filter({ hasText: "Distributions" })).toHaveAttribute("aria-current", "page");
-  await page.locator("#preview-role").selectOption("partner-a");
-  await page.goto("/#/biz");
+  await page.evaluate(() => { const k = "thryvems.console.ui.v1"; const u = JSON.parse(localStorage.getItem(k) || "{}"); localStorage.setItem(k, JSON.stringify({ ...u, role: "partner", partner: "partner-a" })); });
+  await page.goto("/#/biz"); await page.reload();
   await expect(page.locator(".sidebar .nav a[aria-label='Business settings']")).toBeVisible();
 });
 

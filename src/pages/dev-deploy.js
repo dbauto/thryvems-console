@@ -14,7 +14,7 @@ export function renderList(r) {
   const tab = r.query.get("tab") || "production";
   if (r.query.get("health")) { setFilter("dep-health", r.query.get("health")); history.replaceState(null, "", "#/dev/deployments"); }
   const t = [{ id: "production", label: "Production" }, { id: "sandboxes", label: "Sandboxes" }, { id: "monitoring", label: "Monitoring" }];
-  const header = pageHeader({ title: "Deployments", description: "One isolated Cloudflare Worker and Neon project per client, from one shared codebase. This registry is a preview: provisioning and health come from simulated or sample records.", actions: tab === "sandboxes" ? button("Create sandbox", "sb-create", { cls: "btn-primary" }) : "" });
+  const header = pageHeader({ title: "Deployments", description: "One isolated Cloudflare Worker and Neon project per client, from one shared codebase.", actions: tab === "sandboxes" ? button("Create sandbox", "sb-create", { cls: "btn-primary" }) : "" });
   if (tab === "sandboxes") return header + tabs(t, tab, "#/dev/deployments", "Deployment views") + sandboxPages.renderListTab();
   if (tab === "monitoring") return header + tabs(t, tab, "#/dev/deployments", "Deployment views") + monitoring();
   if (tab !== "production") return notFound();
@@ -81,7 +81,7 @@ function overview(x, c) {
   return card({ title: "Provisioning and lifecycle", note: "Deployment lifecycle, separate from the account lifecycle (" + h(c.accountStatus) + ").", body: '<div class="card-body">' +
     lifecycleTrack(PROD_TRACK, failed ? 3 : x.status === "Live" ? 5 : Math.max(0, idx), failed ? 3 : undefined) +
     (x.status === "Approved" && x.lastSimulation ? alertBox("info", "<strong>Simulation passed</strong> " + formatDateTime(x.lastSimulation) + ". No infrastructure was created. The deployment stays Approved until real provisioning is connected and run by the backend.") : "") +
-    (["Requested", "Approved", "Failed"].includes(x.status) ? alertBox("warning", "<strong>Preview simulation.</strong> No Worker, database, queue or DNS record is created. Live is only set by a verified backend provisioning run.") : "") +
+    (["Requested", "Approved", "Failed"].includes(x.status) ? alertBox("warning", "<strong>Provisioning not connected yet.</strong> No Worker, database, queue or DNS record is created. Live is only set by a verified backend provisioning run.") : "") +
     '<div class="inline-actions">' + actions + "</div></div>" }) +
     card({ title: "Production environment", body: '<div class="card-body">' + keyFacts([
       ["Client", linkTo(c.name, "#/dev/organisations/" + c.id)], ["Environment", h(x.env)], ["Deployment ID", "<code>" + h(x.worker) + "</code>"], ["Hostname", h(x.hostname)],
@@ -207,7 +207,7 @@ function wizardSheet() {
   } else {
     body += keyFacts([["Client", h(c.name)], ["Hostname", h(slugify(wiz.values.hostname) + ".thryvems.example")], ["Version", "v" + h(wiz.values.version)], ["Channel", h(wiz.values.channel)], ["Region", "Singapore"], ["Reason", h(wiz.values.reason)]]) +
       "<h3>What happens next</h3><ol class=\"small\"><li>The request is recorded as <strong>Requested</strong> and the account becomes <strong>Awaiting provisioning</strong>.</li><li>You approve it (re-confirmation).</li><li>The backend runs: " + h(PROVISION_STEPS.join(", ")) + ".</li><li>Only a verified run sets the deployment Live.</li></ol>" +
-      alertBox("warning", "<strong>Preview:</strong> this records a request only. No Cloudflare, Neon or DNS resource is created.") + formError();
+      alertBox("warning", "This records a request only. No Cloudflare, Neon or DNS resource is created.") + formError();
     footer += button("Back", "wiz-back") + button("Submit provisioning request", "wiz-submit", { cls: "btn-primary", submit: true, primary: true });
   }
   sheet({ title: "Request provisioning", description: h(c.name) + " · guided provisioning", body, footer, wide: true });
@@ -231,7 +231,7 @@ export const actions = {
     if (!res.ok) return showFormError(res.error);
     closeOverlay(true); notify("Provisioning requested. Nothing is deployed yet."); go("#/dev/deployments/" + res.id);
   },
-  "prov-approve": (el) => confirmReason("Approve provisioning?", "Re-confirm that this client should be provisioned. In the preview this only changes the request state.", "Approve provisioning", "prov-approve-confirm", el.dataset.id),
+  "prov-approve": (el) => confirmReason("Approve provisioning?", "Re-confirm that this client should be provisioned.", "Approve provisioning", "prov-approve-confirm", el.dataset.id),
   "prov-approve-confirm": (el) => done(approveProvisioning(el.dataset.id, reasonValue()), "Provisioning approved"),
   "prov-sim": (el) => { const res = simulateProvisioning(el.dataset.id, el.dataset.arg); if (!res.ok) return notify(res.error); rerender(); notify(el.dataset.arg === "fail" ? "Simulation failed at " + res.run.steps.find((s) => s.result.startsWith("Failed")).name : "Simulation passed. Nothing was provisioned."); },
   "prov-retry": (el) => confirmReason("Retry provisioning?", "The request returns to Approved and resumes from the failed step.", "Retry", "prov-retry-confirm", el.dataset.id),

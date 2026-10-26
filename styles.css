@@ -176,6 +176,21 @@ main h1[tabindex="-1"]:focus{outline:none}
 .alert-success{background:var(--done-tint)}
 .pl-total td,.pl-total th{font-weight:700;border-top:2px solid var(--border)}
 
+/* Sign-in and account (26 Oct 2026) */
+.login-shell{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--background)}
+.login-card{width:min(100%,400px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px 28px;display:flex;flex-direction:column;gap:16px;box-shadow:0 10px 40px #0000000f}
+.login-brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:600;margin-bottom:8px}.login-brand .product-symbol{object-fit:contain}
+.login-card h1{font-size:1.5rem}.login-card>.muted{margin-top:-8px;font-size:13px}
+.login-form{display:flex;flex-direction:column;gap:14px}.label-row{display:flex;justify-content:space-between;align-items:baseline}
+.check{display:flex;gap:8px;align-items:center;font-size:13px}.login-submit{width:100%;min-height:40px}
+.login-foot{font-size:12px;color:var(--muted-foreground);border-top:1px solid var(--border);padding-top:14px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--primary);display:inline-grid;place-items:center;font-weight:700;font-size:12px;flex:0 0 32px}
+.account-card{display:flex;gap:10px;align-items:center;padding:8px 4px}.account-text strong{display:block;font-size:13px;color:var(--foreground)}.account-text small{display:block;font-size:11px}
+.sidebar.collapsed .account-text{display:none}
+.account-menu{position:relative}.account-menu summary{list-style:none;cursor:pointer;border-radius:50%}.account-menu summary::-webkit-details-marker{display:none}
+.account-pop{position:absolute;right:0;top:40px;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 40px #0000001f;padding:14px;min-width:240px;display:flex;flex-direction:column;gap:12px}
+.account-who strong{display:block}.account-who small{display:block;color:var(--muted-foreground);font-size:12px;margin-top:2px}
+.icon-btn{width:36px;padding:0}
 /* Sidebar sub-pages, table footer and mobile drawer (follow-up to PR #6) */
 .nav-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 30px;border-left:1px solid var(--border);padding-left:8px}
 .sidebar .nav .nav-sub a{height:auto;min-height:30px;padding:5px 10px;font-size:13px;gap:0}

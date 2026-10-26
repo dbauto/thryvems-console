@@ -14,7 +14,7 @@ export const POLICY = [
   ["Accounting basis", "Accrual. Revenue is recognised by service month; annual invoices are spread over 12 months."],
   ["Taxes", "Amounts exclude 12% VAT. VAT is not revenue or profit."],
   ["Refunds, discounts and credit notes", "Reduce revenue in the month they are recorded."],
-  ["Exchange rates", "USD provider invoices use the rate shown on each record (synthetic rates in the preview)."],
+  ["Exchange rates", "USD provider invoices use the rate shown on each record."],
   ["Shared infrastructure", "Split among clients live in the month, per active user."],
   ["Missing provider data", "Shown as Not available and marks totals Incomplete. Never counted as 0."],
   ["Approved adjustments", "Recorded on the monthly statement with a reason; part of net profit."],
@@ -146,7 +146,7 @@ export function profitReport(ws, r) {
       { key: "m", label: "Period", cell: (x) => h(monthLabel(x.month)) }, { key: "n", label: "Net profit", cell: (x) => moneyCell(x.net) },
       { key: "s", label: "Statement", cell: (x) => badge(x.status) + (x.publishedAt ? '<div class="secondary">Published ' + formatDate(x.publishedAt) + "</div>" : "") },
     ] });
-  return '<div class="filters">' + periodFilter() + '<span class="muted small">Accrual basis · PHP · excludes VAT · synthetic records</span></div>' + sameBanner(p, dev) + profitFigures(p, base) +
+  return '<div class="filters">' + periodFilter() + '<span class="muted small">Accrual basis · PHP · excludes VAT</span></div>' + sameBanner(p, dev) + profitFigures(p, base) +
     viewChips(views, view, (id) => base + "&view=" + id, "Report views") +
     body + card({ title: "Accounting policy", note: "Applies to every figure in both workspaces.", body: '<div class="card-body">' + keyFacts(POLICY.map(([k, v]) => [k, h(v)])) + "</div>" });
 }

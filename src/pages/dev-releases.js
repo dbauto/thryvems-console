@@ -15,14 +15,14 @@ export function renderList(r) {
   const latest = d.releases.find((x) => x.approval === "Approved" && x.verification === "Verified");
   const awaiting = d.releases.filter((x) => x.approval !== "Approved");
   const promos = d.requests.filter((x) => x.kind === "Release promotion" && x.status === "Pending");
-  const header = pageHeader({ title: "Releases", description: "Application versions for every client deployment. Production releases need the platform owner's approval; nothing deploys automatically, and the preview never deploys." }) +
+  const header = pageHeader({ title: "Releases", description: "Application versions for every client deployment. Production releases need the platform owner's approval; nothing deploys automatically." }) +
     figureGrid([
       figure({ label: "Versions in the registry", value: d.releases.length, icon: "⇧" }),
       figure({ label: "Latest verified release", value: latest ? "v" + latest.version : "No data", note: latest ? usingVersion(latest.version).length + " live clients on it" : "", icon: "✓" }),
       figure({ label: "Releases awaiting approval", value: awaiting.length, badge: awaiting.length ? "Pending" : "None", icon: "○" }),
       figure({ label: "Promotion requests", value: promos.length, badge: promos.length ? "Pending" : "None", icon: "✉", href: "#/dev/requests" }),
     ], "Release figures") +
-    card({ title: "Release workflow", note: "Every production change follows these stages. The preview stops before production deployment.", body: '<div class="card-body">' + lifecycleTrack(RELEASE_STAGES, 5) + '<p class="small muted">Production deployment and verification require the GitHub production environment approval and the trusted pipeline (plan v3 §29, §32).</p></div>' }) +
+    card({ title: "Release workflow", note: "Every production change follows these stages.", body: '<div class="card-body">' + lifecycleTrack(RELEASE_STAGES, 5) + '<p class="small muted">Production deployment and verification require the GitHub production environment approval and the trusted pipeline (plan v3 §29, §32).</p></div>' }) +
     tabs([{ id: "registry", label: "Release registry" }, { id: "history", label: "Per-client release history" }], tab, "#/dev/releases", "Release views");
   if (tab === "history") {
     const cid = getFilter("rh-client");

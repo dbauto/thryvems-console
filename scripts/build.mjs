@@ -35,4 +35,8 @@ const symbols = ICON_NAMES.map((name) => {
 });
 writeFileSync(resolve("dist", "icons.svg"), '<svg xmlns="http://www.w3.org/2000/svg">' + symbols.join("") + '</svg>');
 
+// GitHub Pages serves the repo root, so the committed icons.svg must carry every icon the app uses.
+const rootSprite = existsSync("icons.svg") ? readFileSync("icons.svg", "utf8") : "";
+const missing = ICON_NAMES.filter((n) => !rootSprite.includes('id="' + n + '"'));
+if (missing.length) throw Error("icons.svg at the repo root is missing: " + missing.join(", ") + ". Run node scripts/sprite.mjs");
 console.log("Built static ThryveMS console preview in dist/ (" + files.length + " modules, " + ICON_NAMES.length + " Lucide icons)");

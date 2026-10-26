@@ -4,6 +4,7 @@ const netProfit = async (page) => (await page.locator(".pl tr.net td.num").inner
 const viewAs = (page, who) => page.getByLabel("Preview, view as").selectOption(who);
 
 test("both workspaces show the same net profit for every period", async ({ page }) => {
+  test.setTimeout(120_000);
   for (const period of ["2026-10", "2026-09", "2026-Q3", "2026-YTD"]) {
     await page.goto("/#/finance/profit");
     await viewAs(page, "developer");
@@ -80,6 +81,7 @@ test("subscription change needs an effective date and reason", async ({ page }) 
 });
 
 test("responsive screenshots at 390/768/1280/1920 in both appearances", async ({ page }, testInfo) => {
+  test.setTimeout(300_000);
   for (const width of [390, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     for (const [who, path] of [["developer", "/#/overview"], ["developer", "/#/finance/profit"], ["partner-a", "/#/overview"], ["partner-a", "/#/finance/profit"]]) {

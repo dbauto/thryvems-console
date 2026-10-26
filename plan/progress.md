@@ -42,3 +42,9 @@
 - ✅ README and console design doc updated to the shared-profit wording.
 - ✅ Typecheck, unit (10), build and e2e (21 passed) green in CI at code SHA e7885161. Owner approved the merge on 26 Oct 2026.
 - ✅ No production deployment. Backend synchronization remains **Pending**.
+
+## 26 Oct 2026 — Sign-in page and production-style UI (PR #8)
+- ✅ Sign-in page and account menu (Sign out); preview banner, role switcher, data-state control and preview wording removed at the owner's request. Sign-in is front-end only until backend auth (plan v3 D9); not a security boundary.
+- ✅ Fixed blank icons and fallback font on GitHub Pages: icons.svg and Public Sans (OFL) are committed at the repo root; the build fails if an icon is missing.
+- ✅ Typecheck, unit (10), build and e2e (22 passed) green in CI at code SHA af2006b7.
+- ✅ No production deployment. Backend synchronization remains **Pending**.

@@ -54,7 +54,7 @@ test("developer creates a sandbox without production side effects and it persist
   await expect(page.getByRole("button", { name: "Request production promotion" })).toBeDisabled();
   await page.reload();
   await page.goto("/#/deployments/sandboxes");
-  await expect(page.getByText("Calamba Precision")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Calamba Precision", exact: true })).toBeVisible();
 });
 
 test("tables search, sort and paginate with 10 rows by default", async ({ page }) => {

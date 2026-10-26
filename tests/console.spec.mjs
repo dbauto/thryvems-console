@@ -50,22 +50,25 @@ test.describe("partner assignment isolation", () => {
 });
 
 test.describe("financial privacy", () => {
-  test("partner pages never show actual provider costs or actual profit", async ({ page }) => {
-    await asRole(page, "partner-a");
-    for (const r of ["#/biz", "#/biz/finance", "#/biz/finance?tab=invoices", "#/biz/finance?tab=distributions", "#/biz/finance?tab=reports", "#/biz/clients/c-demo-manufacturing?tab=history"]) {
-      await page.goto("/" + r);
-      const text = await page.locator("main").innerText();
-      expect(text).not.toMatch(/Actual operating profit|Neon|Cloudflare Workers|Direct actual|Shared infrastructure|Unallocated|Allocated expense formula/);
+  test("partners see the same shared net profit as the Developer", async ({ page }) => {
+    await page.goto("/#/dev/finance");
+    const dev = await page.getByTestId("sp-net").locator("strong").textContent();
+    for (const role of ["partner-a", "partner-b"]) {
+      await asRole(page, role);
+      await page.goto("/#/biz/finance");
+      await expect(page.getByTestId("sp-net").locator("strong")).toHaveText(dev);
     }
+  });
+  test("partners never see other partners' client details", async ({ page }) => {
+    await asRole(page, "partner-a");
+    await page.goto("/#/biz/finance?tab=profit&view=client");
+    const text = await page.locator("main").innerText();
+    expect(text).not.toContain("Example Logistics");
     await page.goto("/#/biz/finance?tab=reports");
     await page.getByRole("button", { name: "Export CSV" }).click();
     const csv = await page.evaluate(() => window.__lastExport);
-    expect(csv.split("\n")[0]).toBe("month,client,revenue,allocated_expenses,reported_profit");
-  });
-  test("developer finance shows both bases separately, labelled", async ({ page }) => {
-    await page.goto("/#/dev/finance");
-    await expect(page.getByTestId("fin-actual-profit")).toContainText("Actual operating profit");
-    await expect(page.getByTestId("fin-distributable")).toContainText("Not the same figure");
+    expect(csv.split("\n")[0]).toBe('"line","amount_php"');
+    expect(csv).not.toContain("Example Logistics");
   });
 });
 

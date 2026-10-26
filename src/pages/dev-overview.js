@@ -1,6 +1,6 @@
 /** Developer Console › Overview. Every figure is derived from the preview records. */
 import { getData, scopeClients, deploymentFor, sandboxStatus, clientById } from "../store.js";
-import { developerSummary, distribution } from "../finance.js";
+import { sharedProfit, distribution } from "../finance.js";
 import { ACCOUNT_STATES } from "../seed.js";
 import { h, pageHeader, figure, figureGrid, card, row, scrollList, badge, linkTo } from "../ui.js";
 import { money, pct, formatDateTime, sum } from "../util.js";
@@ -27,15 +27,14 @@ export function render() {
   const pendingReleases = d.requests.filter((r) => r.kind === "Release promotion" && r.status === "Pending" && (!clientId || r.clientId === clientId));
   const releasesAwaiting = d.releases.filter((r) => r.approval !== "Approved");
   const incidents = d.supportReports.filter((r) => !["Closed", "Deployed"].includes(r.state) && ids.includes(r.clientId));
-  const fin = developerSummary(d, p.months, clientId || status ? ids : null);
+  const fin = sharedProfit(d, p.months);
   const dist = p.months.map((m) => distribution(d, m));
   const devShare = sum(dist, "developer");
   const infra = round(fin.direct + fin.shared + fin.unallocated);
-  const filtered = !!(clientId || status);
   const pendingProv = clients.filter((c) => PENDING_PROVISIONING.includes(c.accountStatus));
 
   const filters = '<div class="filters" role="group" aria-label="Overview filters">' + periodFilter() + clientFilter("ov-client", all) + selectFilter("ov-status", "Account status", [{ value: "", label: "All statuses" }, ...ACCOUNT_STATES.map((s) => ({ value: s, label: s }))]) + "</div>";
-  return pageHeader({ title: "Developer overview", description: "Clients, deployments, releases and actual platform finances. Figures come from the preview records below them; select a card to see its records." }) + filters +
+  return pageHeader({ title: "Developer overview", description: "Clients, deployments, releases and the shared business profit. Figures come from the preview records below them; select a card to see its records." }) + filters +
     '<h2 class="section-title">Clients</h2>' +
     figureGrid([
       figure({ label: "Client organisations", value: clients.filter((c) => c.accountStatus !== "Archived").length, badge: "Excludes archived", tone: "draft", icon: "building-2", href: "#/dev/organisations", testid: "kpi-clients" }),
@@ -50,16 +49,16 @@ export function render() {
       figure({ label: "Deployment warnings and failures", value: warnings.length, badge: warnings.length ? "Needs a look" : "None", tone: warnings.length ? "soon" : "done", icon: "triangle-alert", href: "#/dev/deployments?health=attention", testid: "kpi-warnings" }),
       figure({ label: "Release requests awaiting approval", value: pendingReleases.length + releasesAwaiting.length, note: pendingReleases.length + " promotion request(s), " + releasesAwaiting.length + " release(s)", icon: "git-branch", href: "#/dev/releases", testid: "kpi-release-approvals" }),
     ], "Deployment figures") +
-    '<h2 class="section-title">Finance <span class="muted small">— ' + h(periodCaption()) + (filtered ? " · filtered clients (platform-level costs excluded)" : "") + "</span></h2>" +
+    '<h2 class="section-title">Shared business profit <span class="muted small">— ' + h(periodCaption()) + " · company-wide, same as the Business Partner workspace</span></h2>" +
     figureGrid([
-      figure({ label: "Subscription revenue (recognised)", value: money(fin.subscription), note: "Enterprise " + money(fin.enterprise) + " · total " + money(fin.revenue), icon: "wallet", href: "#/dev/finance?tab=revenue", testid: "kpi-sub-revenue" }),
-      figure({ label: "Actual infrastructure expenses", value: money(infra), badge: fin.incomplete ? "Incomplete" : "Complete", tone: fin.incomplete ? "soon" : "done", note: "Direct " + money(fin.direct) + " · shared " + money(fin.shared) + (filtered ? "" : " · unallocated " + money(fin.unallocated)), icon: "server", href: "#/dev/finance?tab=costs", testid: "kpi-infra" }),
-      figure({ label: "Other operating expenses", value: filtered ? "No data" : money(fin.opex), note: filtered ? "Platform-level; not split by client" : "Accounting, workspace, licences", icon: "building-2", href: "#/dev/finance?tab=costs", testid: "kpi-opex" }),
-      figure({ label: "Actual operating profit", value: money(fin.profit), badge: "Margin " + pct(fin.margin), tone: fin.profit >= 0 ? "done" : "overdue", note: "Revenue − actual costs − operating expenses", icon: "circle-check", href: "#/dev/finance", testid: "kpi-profit" }),
+      figure({ label: "Recognised revenue", value: money(fin.revenue), note: "Subscriptions " + money(fin.subscription) + " · enterprise " + money(fin.enterprise), icon: "wallet", href: "#/dev/finance?tab=revenue", testid: "kpi-sub-revenue" }),
+      figure({ label: "Actual infrastructure expenses", value: money(infra), badge: fin.incomplete ? "Incomplete" : "Complete", tone: fin.incomplete ? "soon" : "done", note: "Direct " + money(fin.direct) + " · shared " + money(fin.shared) + " · unallocated " + money(fin.unallocated), icon: "server", href: "#/dev/finance?tab=costs", testid: "kpi-infra" }),
+      figure({ label: "Operating and shared business expenses", value: money(fin.opex + fin.sharedBusiness), note: "Operating " + money(fin.opex) + " · shared business " + money(fin.sharedBusiness), icon: "building-2", href: "#/dev/finance?tab=costs", testid: "kpi-opex" }),
+      figure({ label: "Shared net profit", value: money(fin.net), badge: "Margin " + pct(fin.margin), tone: fin.net >= 0 ? "done" : "overdue", note: "Revenue − expenses ± approved adjustments", icon: "circle-check", href: "#/dev/finance?tab=profit", testid: "kpi-profit" }),
     ], "Finance figures") +
     '<section class="split">' +
-    card({ title: "Developer profit allocation", note: "30% of distributable profit (commercial basis), " + h(periodCaption()) + ". Not the same figure as actual operating profit.", action: linkTo("Distributions", "#/dev/finance?tab=distributions"), body:
-      row("Distributable profit", "Recognised revenue − allocated service expenses − recognised shared business expenses ± adjustments", '<strong data-testid="ov-distributable">' + h(money(sum(dist, "distributable"))) + "</strong>") +
+    card({ title: "Distribution of shared net profit", note: h(periodCaption()) + ". Separate from profit; losses are not distributed.", action: linkTo("Distributions", "#/dev/finance?tab=distributions"), body:
+      row("Shared net profit", "The same figure in both workspaces", '<strong data-testid="ov-distributable">' + h(money(sum(dist, "distributable"))) + "</strong>") +
       row("Developer allocation · 30%", "Paid " + h(money(sum(dist, "paidDeveloper"))) + " · pending " + h(money(sum(dist, "pendingDeveloper"))), '<strong data-testid="ov-dev-share">' + h(money(devShare)) + "</strong>") +
       row("Business partners combined · 70%", "Individual partner shares are not defined yet", "<strong>" + h(money(sum(dist, "partners"))) + "</strong>") }) +
     card({ title: "Current application versions", note: "Live production deployments by version. Latest verified: " + h(latestStable?.version || "none"), action: linkTo("Releases", "#/dev/releases"), body:

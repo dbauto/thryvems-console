@@ -1,15 +1,17 @@
 /**
  * Financial calculations for the preview. Pure functions over synthetic records.
  *
- * Two separate bases, never presented as the same figure:
- *  - Actual operating profit (Developer only)
- *      = recognised revenue − direct actual costs − shared actual costs − unallocated actual costs − other operating expenses
- *  - Reported profit (commercial basis, shown to partners for their assigned clients)
- *      = recognised revenue − allocated service expenses
- *  - Distributable profit (profit-sharing pool, per month)
- *      = recognised revenue (all clients) − allocated service expenses (all clients)
- *        − recognised shared business expenses + adjustments
- *    Developer 30%, business partners combined 70%. Individual partner shares are not defined.
+ * ONE business profit for the Developer and every Business Partner (owner decision, 26 Oct 2026; backend ADR-004):
+ *   Net profit = recognised revenue − recognised expenses ± approved adjustments
+ *   recognised revenue  = subscription + enterprise revenue by service month, net of VAT, minus discounts and credit notes
+ *   recognised expenses = actual direct infrastructure + shared infrastructure + unallocated platform costs
+ *                         + other operating expenses + recognised shared business expenses
+ *   approved adjustments = adjustments recorded on the monthly statements
+ * Both workspaces call sharedProfit(); there is no second formula. Partners only see other partners' client
+ * details hidden; totals are identical.
+ *
+ * Distribution starts from the same net profit: Developer 30%, Business Partners combined 70%, losses not
+ * distributed. Individual partner shares are not defined.
  *
  * Revenue is recognised by service month, net of VAT and discounts (approved plan, decision 7).
  * Missing actual cost data is "Not available" and marks totals "Incomplete"; it is never counted as 0.
@@ -125,107 +127,73 @@ export function actualCosts(data, months) {
   return { perClient, direct: round2(directTotal), shared: round2(sharedTotal), unallocated: round2(unallocated), opex, missing };
 }
 
-/* ------------------------------------------------------- allocated expense */
+/* ------------------------------------------------------ shared net profit */
 
-/** Formula in force for a client and month: client override first, then the default. */
-export function allocationFormula(data, clientId, month) {
-  const start = month + "-01";
-  const pick = (list) => list.filter((f) => f.effectiveFrom <= start).sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
-  const own = pick(data.allocationOverrides.filter((o) => o.clientId === clientId));
-  const def = pick(data.allocationDefault);
-  if (own && !own.revert) return { ...own, own: true };
-  return def ? { ...def, own: false } : null;
-}
-export function allocatedExpense(data, client, month) {
-  if (!liveInMonth(client, month)) return null;
-  const f = allocationFormula(data, client.id, month);
-  if (!f) return null;
-  const users = activeUsersAt(client);
-  return { amount: round2(f.fixed + f.perUser * users), formula: "₱" + f.fixed.toLocaleString("en-PH") + " + " + users + " × ₱" + f.perUser.toLocaleString("en-PH"), own: f.own };
-}
-export function allocatedByClient(data, months, clients = data.clients) {
-  const out = new Map();
-  for (const c of clients) {
-    let total = 0, any = false;
-    const lines = [];
-    for (const m of months) {
-      const a = allocatedExpense(data, c, m);
-      if (a) { total += a.amount; any = true; lines.push({ month: m, ...a }); }
-    }
-    out.set(c.id, any ? { amount: round2(total), lines } : null);
-  }
-  return out;
-}
-
-/* ------------------------------------------------------------- summaries */
-
-export function developerSummary(data, months, clientIds = null) {
-  const clients = clientIds ? data.clients.filter((c) => clientIds.includes(c.id)) : data.clients;
+/**
+ * The single profit calculation used by both workspaces. Per-client rows (revenue − direct − shared share)
+ * plus the company-wide line always add up to net profit.
+ */
+export function sharedProfit(data, months) {
+  const want = inMonths(months);
   const rev = revenueByClient(data, months);
   const costs = actualCosts(data, months);
-  const rows = clients.map((c) => {
+  let subscription = 0, enterprise = 0, revenueAdjustments = 0;
+  for (const r of rev.values()) { subscription += r.subscription; enterprise += r.enterprise; revenueAdjustments += r.adjustments; }
+  subscription = round2(subscription); enterprise = round2(enterprise); revenueAdjustments = round2(revenueAdjustments);
+  const revenue = round2(subscription + enterprise + revenueAdjustments);
+  const businessList = data.sharedBusiness.filter((x) => want(x.month));
+  const sharedBusiness = round2(sum(businessList.filter((x) => x.recognised), "php"));
+  const notRecognised = round2(sum(businessList.filter((x) => !x.recognised), "php"));
+  const adjustmentList = data.statements.filter((st) => want(st.month)).flatMap((st) => st.adjustments.map((a) => ({ ...a, month: st.month })));
+  const approvedAdjustments = round2(sum(adjustmentList, "amount"));
+  const expenses = round2(costs.direct + costs.shared + costs.unallocated + costs.opex + sharedBusiness);
+  const net = round2(revenue - expenses + approvedAdjustments);
+  const rows = data.clients.map((c) => {
     const r = rev.get(c.id) || { subscription: 0, enterprise: 0, adjustments: 0, total: 0 };
     const k = costs.perClient.get(c.id) || { direct: 0, shared: 0, total: 0, incomplete: false, missing: [], basis: [] };
     const profit = round2(r.total - k.total);
     return { client: c, revenue: r.total, subscription: r.subscription, enterprise: r.enterprise, adjustments: r.adjustments, direct: k.direct, shared: k.shared, cost: k.total, profit, margin: r.total > 0 ? profit / r.total : null, incomplete: k.incomplete, missing: k.missing, basis: k.basis };
-  });
-  const filtered = !!clientIds;
-  const revenue = sum(rows, "revenue");
-  const direct = sum(rows, "direct");
-  const shared = filtered ? sum(rows, "shared") : costs.shared;
-  const unallocated = filtered ? 0 : costs.unallocated;
-  const opex = filtered ? 0 : costs.opex;
-  const profit = round2(revenue - direct - shared - unallocated - opex);
+  }).filter((x) => x.revenue || x.cost);
+  // Unallocated platform costs, operating and shared business expenses and approved adjustments stay company-wide.
+  const companyWide = round2(net - sum(rows, "profit"));
   return {
-    rows, revenue, subscription: sum(rows, "subscription"), enterprise: sum(rows, "enterprise"), adjustments: sum(rows, "adjustments"),
-    direct, shared, unallocated, opex, profit, margin: revenue > 0 ? profit / revenue : null,
-    incomplete: rows.some((r) => r.incomplete), missingCount: rows.reduce((a, r) => a + r.missing.length, 0), filtered,
+    months, revenue, subscription, enterprise, revenueAdjustments,
+    direct: costs.direct, shared: costs.shared, unallocated: costs.unallocated, opex: costs.opex, sharedBusiness, notRecognised,
+    expenses, approvedAdjustments, adjustmentList, net, margin: revenue > 0 ? net / revenue : null,
+    rows, companyWide, incomplete: costs.missing.length > 0, missingCount: costs.missing.length,
   };
 }
 
-/** Commercial (reported) basis for a set of clients. Contains no actual-cost fields by construction. */
-export function commercialSummary(data, months, clients) {
-  const rev = revenueByClient(data, months);
-  const alloc = allocatedByClient(data, months, clients);
-  const rows = clients.map((c) => {
-    const r = rev.get(c.id) || { subscription: 0, enterprise: 0, adjustments: 0, total: 0 };
-    const a = alloc.get(c.id);
-    const allocated = a ? a.amount : null;
-    const reported = round2(r.total - (allocated || 0));
-    return { clientId: c.id, name: c.name, revenue: r.total, subscription: r.subscription, enterprise: r.enterprise, adjustments: r.adjustments, allocated, allocationLines: a ? a.lines : [], reportedProfit: reported, margin: r.total > 0 ? reported / r.total : null };
-  });
-  const revenue = sum(rows, "revenue");
-  const allocated = sum(rows, (r) => r.allocated || 0);
-  const reportedProfit = round2(revenue - allocated);
-  return { rows, revenue, subscription: sum(rows, "subscription"), enterprise: sum(rows, "enterprise"), allocated, reportedProfit, margin: revenue > 0 ? reportedProfit / revenue : null };
+/** Expense categories behind recognised expenses, for the transparent breakdown both roles see. */
+export function expenseCategories(data, months) {
+  const want = inMonths(months);
+  const p = sharedProfit(data, months);
+  const byCat = new Map();
+  for (const x of data.costs) if (want(x.month) && x.php != null) byCat.set(x.category, round2((byCat.get(x.category) || 0) + x.php));
+  const list = [...byCat.entries()].map(([name, amount]) => ({ name, amount, group: "Infrastructure" }));
+  list.push({ name: "Other operating expenses", amount: p.opex, group: "Operating" });
+  if (p.sharedBusiness) list.push({ name: "Shared business expenses", amount: p.sharedBusiness, group: "Shared business" });
+  const total = sum(list, "amount");
+  return list.filter((x) => x.amount).map((x) => ({ ...x, share: total ? x.amount / total : 0 })).sort((a, b) => b.amount - a.amount);
 }
 
 /* ---------------------------------------------------------- distributions */
 
 export function distribution(data, month) {
   const st = data.statements.find((s) => s.month === month) || { month, status: "Draft", adjustments: [], payouts: [] };
-  const all = commercialSummary(data, [month], data.clients);
-  const sharedBusiness = sum(data.sharedBusiness.filter((x) => x.month === month && x.recognised), "php");
-  const adjustments = sum(st.adjustments, "amount");
-  const recognisedExpenses = round2(all.allocated + sharedBusiness);
-  const distributable = round2(all.revenue - recognisedExpenses + adjustments);
-  const developer = round2(Math.max(0, distributable) * DEVELOPER_SHARE);
-  const partners = round2(Math.max(0, distributable) * PARTNER_SHARE);
-  const paidDeveloper = sum(st.payouts.filter((p) => p.recipient === "Developer"), "amount");
-  const paidPartners = sum(st.payouts.filter((p) => p.recipient === "Partners (combined)"), "amount");
+  const p = sharedProfit(data, [month]);
+  const distributable = p.net;
+  const base = Math.max(0, distributable);
+  const developer = round2(base * DEVELOPER_SHARE);
+  const partners = round2(base - developer);
+  const paidDeveloper = sum(st.payouts.filter((x) => x.recipient === "Developer"), "amount");
+  const paidPartners = sum(st.payouts.filter((x) => x.recipient === "Partners (combined)"), "amount");
   return {
-    month, status: st.status, publishedAt: st.publishedAt, revenue: all.revenue, allocated: all.allocated, sharedBusiness, recognisedExpenses, adjustments,
-    adjustmentList: st.adjustments, payouts: st.payouts, distributable, developer, partners,
+    month, status: st.status, publishedAt: st.publishedAt, revenue: p.revenue, sharedBusiness: p.sharedBusiness, recognisedExpenses: p.expenses, adjustments: p.approvedAdjustments,
+    adjustmentList: st.adjustments, payouts: st.payouts, net: p.net, distributable, developer, partners,
     paidDeveloper, paidPartners, pendingDeveloper: round2(developer - paidDeveloper), pendingPartners: round2(partners - paidPartners),
     paid: round2(paidDeveloper + paidPartners), pending: round2(developer - paidDeveloper + partners - paidPartners),
   };
-}
-
-/** A partner's contribution to the pool from their assigned clients. Not their payout. */
-export function partnerContribution(data, months, partnerId) {
-  const clients = data.clients.filter((c) => c.partnerId === partnerId);
-  const s = commercialSummary(data, months, clients);
-  return { revenue: s.revenue, allocated: s.allocated, contribution: s.reportedProfit };
 }
 
 /* ------------------------------------------------------------ subscriptions */

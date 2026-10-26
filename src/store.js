@@ -5,7 +5,7 @@
  */
 import { buildSeed, PARTNERS, SANDBOX_PURPOSES, CORE_MODULE, MODULES } from "./seed.js";
 import { TODAY, CURRENT_MONTH, addDays, clone, uid, isHttps, slugify, round2, sum } from "./util.js";
-import { validateSeats, invoiceTotals, distribution, currentPricing, allocationFormula } from "./finance.js";
+import { validateSeats, invoiceTotals, distribution, currentPricing } from "./finance.js";
 
 export const STORAGE_KEY = "thryvems.console.v2";
 const LEGACY_KEY = "thryvems.console.demo.v1";
@@ -655,33 +655,6 @@ export function updatePricing(f) {
     return ok();
   });
 }
-export function setAllocation(clientId, f) {
-  return run(() => {
-    requireDev();
-    requireEffective(f.effectiveFrom); requireReason(f.reason);
-    const fixed = Number(f.fixed), perUser = Number(f.perUser);
-    need(Number.isFinite(fixed) && fixed >= 0 && Number.isFinite(perUser) && perUser >= 0, "Enter amounts of 0 or more.");
-    const rec = { id: uid("af"), effectiveFrom: f.effectiveFrom, fixed, perUser, reason: f.reason, by: actorName(), at: NOW };
-    if (clientId) {
-      need(clientById(clientId), "Client not found.");
-      data.allocationOverrides.push({ ...rec, clientId });
-    } else data.allocationDefault.push(rec);
-    audit({ action: clientId ? "Allocated expense formula set for client" : "Default allocated expense formula changed", clientId, target: "Allocated service expense", after: "₱" + fixed + " + ₱" + perUser + " per active user from " + f.effectiveFrom, reason: f.reason });
-    return ok();
-  });
-}
-export function removeAllocationOverride(clientId, reason) {
-  return run(() => {
-    requireDev(); requireReason(reason);
-    const f = allocationFormulaFor(clientId);
-    need(f && f.own, "This client uses the default formula.");
-    data.allocationOverrides = data.allocationOverrides.filter((o) => !(o.clientId === clientId && o.effectiveFrom > firstOfOpenMonth));
-    data.allocationOverrides.push({ id: uid("af"), clientId, effectiveFrom: firstOfOpenMonth, revert: true, fixed: null, perUser: null, reason, by: actorName(), at: NOW });
-    audit({ action: "Client allocation returned to default", clientId, target: "Allocated service expense", before: "Own formula", after: "Default from " + firstOfOpenMonth, reason });
-    return ok();
-  });
-}
-const allocationFormulaFor = (clientId) => allocationFormula(data, clientId, CURRENT_MONTH);
 export const COST_CATEGORIES = ["Cloudflare Workers", "Cloudflare paid plans and features", "Neon databases and compute", "R2 storage and exports", "AWS S3 backups", "Amazon SES email", "Authentication providers", "Domains and DNS-related services", "Monitoring and logging", "Other platform operational tools"];
 export function addCost(f) {
   return run(() => {

@@ -4,7 +4,7 @@
  * Console, so totals are identical; records of other partners' clients keep their amounts and hide their
  * details. Developers can open this workspace read-only to inspect a partner's view.
  */
-import { getData, getUi, scopeClients, businessPartnerId, isInspecting, partnerOf, deploymentFor, submitRequest, withdrawRequest, updatePartnerSettings, partnerSettings } from "../store.js";
+import { getData, getUi, scopeClients, businessPartnerId, isInspecting, partnerOf, deploymentFor, submitRequest, withdrawRequest, updatePartnerSettings, partnerSettings, partnerCan } from "../store.js";
 import { sharedProfit, expenseCategories, distribution, invoiceTotals, currentPricing, chargeBreakdown } from "../finance.js";
 import { profitReport, profitFigures, sameBanner, plRows, profitRecords, profitCsv, profitChart } from "./profit.js";
 import { MODULES } from "../seed.js";
@@ -27,6 +27,7 @@ function partnerActivity(ids) {
 
 /* ---------------------------------------------------------------- overview */
 
+const grid = (cards, label) => { const c = cards.filter(Boolean); return c.length ? figureGrid(c, label) : ""; };
 export function renderOverview() {
   const d = getData();
   const all = scopeClients("biz");
@@ -41,36 +42,38 @@ export function renderOverview() {
   const newSubs = clients.filter((c) => p.months.includes(c.subscription.startDate.slice(0, 7)));
   const dist = p.months.map((m) => distribution(d, m));
   const pl = partnerOf(businessPartnerId());
-  return pageHeader({ title: "Business overview", description: "Your assigned clients and the company's shared business profit. The profit figures are the same ones the Developer sees, from the same records." }) +
+  return pageHeader({ title: "Business overview", description: "Your clients and the company's business performance." }) +
     '<div class="filters" role="group" aria-label="Overview filters">' + periodFilter() + clientFilter("bz-client", all) + "</div>" +
-    '<h2 class="section-title">Clients</h2>' +
+    (partnerCan("clients") ? '<h2 class="section-title">Clients</h2>' +
     figureGrid([
       figure({ label: "Assigned clients", value: clients.length, icon: "▤", href: "#/biz/clients", testid: "bz-assigned" }),
       figure({ label: "Active subscriptions", value: clients.filter((c) => ["Active", "Past due"].includes(c.subscription.status)).length, badge: "Paid plan", tone: "done", icon: "✓", href: "#/biz/clients?tab=subscriptions" }),
       figure({ label: "Trial accounts", value: clients.filter((c) => c.subscription.status === "Trial").length, icon: "○", href: "#/biz/clients?tab=subscriptions" }),
       figure({ label: "New subscriptions", value: newSubs.length, note: periodCaption(), icon: "+", href: "#/biz/clients" }),
-    ], "Client figures") +
-    '<h2 class="section-title">Shared business profit <span class="muted small">— ' + h(periodCaption()) + "</span></h2>" + sameBanner(sp, false) +
-    profitFigures(sp, "#/biz/finance?tab=profit") +
-    figureGrid([
-      figure({ label: "Outstanding invoices", value: invs.length, note: money(sum(invs, "outstanding")) + (invs.some((t) => t.status === "Overdue") ? " · includes overdue" : ""), tone: "overdue", badge: invs.some((t) => t.status === "Overdue") ? "Overdue" : null, icon: "receipt-text", href: "#/biz/finance?tab=invoices" }),
-      figure({ label: "Subscription changes", value: changes.length, note: periodCaption(), icon: "arrow-down-up", href: "#/biz/clients?tab=subscriptions" }),
-      figure({ label: "Revenue from your clients", value: cid ? money(mine.filter((x) => x.client.id === cid).reduce((a, x) => a + x.revenue, 0)) : money(mine.reduce((a, x) => a + x.revenue, 0)), note: "Enterprise " + money(mine.reduce((a, x) => a + x.enterprise, 0)), icon: "chart-no-axes-combined", href: "#/biz/finance?tab=profit&view=client" }),
-      figure({ label: "Business Partners combined · 70%", value: money(sum(dist, "partners")), note: "Paid " + money(sum(dist, "paidPartners")) + " · individual shares not defined", icon: "users-round", href: "#/biz/finance?tab=distributions", testid: "bz-partner-pool" }),
+    ], "Client figures") : "") +
+    (partnerCan("finance.profit") ? '<h2 class="section-title">Shared business profit <span class="muted small">— ' + h(periodCaption()) + "</span></h2>" + sameBanner(sp, false) +
+    profitFigures(sp, "#/biz/finance?tab=profit") : "") +
+    grid([
+      partnerCan("finance.invoices") && figure({ label: "Outstanding invoices", value: invs.length, note: money(sum(invs, "outstanding")) + (invs.some((t) => t.status === "Overdue") ? " · includes overdue" : ""), tone: "overdue", badge: invs.some((t) => t.status === "Overdue") ? "Overdue" : null, icon: "receipt-text", href: "#/biz/finance?tab=invoices" }),
+      partnerCan("clients.subscriptions") && figure({ label: "Subscription changes", value: changes.length, note: periodCaption(), icon: "arrow-down-up", href: "#/biz/clients?tab=subscriptions" }),
+      partnerCan("finance.profit") && figure({ label: "Revenue from your clients", value: cid ? money(mine.filter((x) => x.client.id === cid).reduce((a, x) => a + x.revenue, 0)) : money(mine.reduce((a, x) => a + x.revenue, 0)), note: "Enterprise " + money(mine.reduce((a, x) => a + x.enterprise, 0)), icon: "chart-no-axes-combined", href: "#/biz/finance?tab=profit&view=client" }),
+      partnerCan("finance.distributions") && figure({ label: "Business Partners combined · 70%", value: money(sum(dist, "partners")), note: "Paid " + money(sum(dist, "paidPartners")) + " · individual shares not defined", icon: "users-round", href: "#/biz/finance?tab=distributions", testid: "bz-partner-pool" }),
     ], "Business figures") +
     card({ title: "Recent business activity", note: "Commercial changes on your assigned clients.", body: scrollList(partnerActivity(ids).slice(0, 15).map((a) => row(h(a.action), formatDateTime(a.at) + " · " + h(getData().clients.find((c) => c.id === a.clientId)?.name || "") + " · " + h(a.after || ""))), { title: "No activity yet", body: "Subscription changes, payments and requests appear here." }) }) +
-    '<p class="footer-caption">Profit figures are company-wide and identical in the Developer Console. Individual partner shares within the combined 70% are not defined.</p>';
+    (partnerCan("finance.profit") ? '<p class="footer-caption">Profit figures are company-wide and identical in the Developer Console. Individual partner shares within the combined 70% are not defined.</p>' : "");
 }
 
 /* ----------------------------------------------------------------- clients */
 
 export function renderClients(r) {
-  const tab = r.query.get("tab") || "clients";
   const d = getData();
   const clients = scopeClients("biz");
   const ids = clients.map((c) => c.id);
   const pl = partnerOf(businessPartnerId());
-  const t = [{ id: "clients", label: "Clients" }, { id: "subscriptions", label: "Subscriptions and seats" }, { id: "enterprise", label: "Enterprise projects" }];
+  const t = [{ id: "clients", label: "Clients" }, { id: "subscriptions", label: "Subscriptions and seats" }, { id: "enterprise", label: "Enterprise projects" }].filter((x) => partnerCan(x.id === "clients" ? "clients" : "clients." + x.id));
+  if (!t.length) return notFound();
+  const tab = r.query.get("tab") || t[0].id;
+  if (!t.some((x) => x.id === tab)) return notFound();
   const header = pageHeader({ title: "Clients", description: "Clients assigned to " + h(pl.label) + ". Their QMS records and deployment details aren't available here.", actions: pl.canRequestClients ? act("Request new client", "bz-new-client", { cls: "btn-primary" }) : "" }) + tabs(t, tab, "#/biz/clients", "Client views");
   if (tab === "clients") {
     const live = getFilter("bz-live");
@@ -131,10 +134,12 @@ function billing(c) {
 
 export function renderClient(id, r) {
   const c = scopeClients("biz").find((x) => x.id === id);
-  if (!c) return notFound();
+  if (!c || !partnerCan("clients")) return notFound();
   const d = getData();
+  const area = { subscription: "clients.subscriptions", billing: "client.billing", enterprise: "clients.enterprise" };
+  const t = [{ id: "account", label: "Account" }, { id: "subscription", label: "Subscription and seats" }, { id: "billing", label: "Billing" }, { id: "enterprise", label: "Enterprise" }, { id: "history", label: "History" }].filter((x) => !area[x.id] || partnerCan(area[x.id]));
   const tab = r.query.get("tab") || "account";
-  const t = [{ id: "account", label: "Account" }, { id: "subscription", label: "Subscription and seats" }, { id: "billing", label: "Billing" }, { id: "enterprise", label: "Enterprise" }, { id: "history", label: "History" }];
+  if (!t.some((x) => x.id === tab)) return notFound();
   const s = c.subscription;
   const p = currentPricing(d);
   let body;
@@ -161,11 +166,13 @@ export function renderClient(id, r) {
 /* ----------------------------------------------------------------- finance */
 
 export function renderFinance(r) {
-  const tab = r.query.get("tab") || "overview";
   const d = getData();
   const all = scopeClients("biz");
   const ids = all.map((c) => c.id);
-  const t = [{ id: "overview", label: "Overview" }, { id: "revenue-expenses", label: "Revenue and expenses" }, { id: "profit", label: "Shared profit reporting" }, { id: "invoices", label: "Invoices" }, { id: "distributions", label: "Distributions" }, { id: "reports", label: "Reports" }];
+  const t = [{ id: "overview", label: "Overview" }, { id: "revenue-expenses", label: "Revenue and expenses" }, { id: "profit", label: "Shared profit reporting" }, { id: "invoices", label: "Invoices" }, { id: "distributions", label: "Distributions" }, { id: "reports", label: "Reports" }].filter((x) => partnerCan("finance." + x.id));
+  if (!t.length) return notFound();
+  const tab = r.query.get("tab") || t[0].id;
+  if (!t.some((x) => x.id === tab)) return notFound();
   const head = pageHeader({ title: "Finance", description: "The company's revenue, actual expenses and shared net profit, the same figures the Developer sees. Details of other partners' clients stay hidden." }) + tabs(t, tab, "#/biz/finance", "Finance sections");
   const p = currentPeriod();
   const sp = sharedProfit(d, p.months);
@@ -232,6 +239,7 @@ export function renderFinance(r) {
 /* ---------------------------------------------------------------- requests */
 
 export function renderRequests() {
+  if (!partnerCan("requests")) return notFound();
   const d = getData();
   const pid = businessPartnerId();
   const pl = partnerOf(pid);
@@ -252,6 +260,7 @@ export function renderRequests() {
 /* ---------------------------------------------------------------- settings */
 
 export function renderSettings() {
+  if (!partnerCan("settings")) return notFound();
   const pid = businessPartnerId();
   const pl = partnerOf(pid);
   const s = partnerSettings(pid);

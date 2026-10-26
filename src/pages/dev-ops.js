@@ -1,5 +1,5 @@
 /** Developer Console › Requests, Logs, Background jobs, Support reports, Support access, Platform team. */
-import { getData, getUi, clientById, decideRequest, updateReport, REPORT_STATES, requestSupportAccess, endSupportAccess, inviteMember, changeMemberRole, removeMember, TEAM_ROLES, updateSettings, resetPreview, sandboxStatus } from "../store.js";
+import { getData, getUi, clientById, decideRequest, updateReport, REPORT_STATES, requestSupportAccess, endSupportAccess, inviteMember, changeMemberRole, removeMember, TEAM_ROLES, updateSettings, resetPreview, sandboxStatus, PARTNER_AREAS, partnerAccess, setPartnerAccess, saveUi } from "../store.js";
 import { PARTNERS } from "../seed.js";
 import { h, pageHeader, badge, keyFacts, dataTable, sheet, dialog, button, input, select, textarea, combobox, formError, readForm, showFormError, closeOverlay, alertBox, card, row, linkTo, emptyLine, unavailable, figure, figureGrid, sampleBadge, resetTables } from "../ui.js";
 import { formatDate, formatDateTime } from "../util.js";
@@ -161,7 +161,7 @@ const PERMISSIONS = [
 ];
 export function renderTeam(r) {
   const tab = r.query.get("tab") || "team";
-  const t = [{ id: "team", label: "Team" }, { id: "permissions", label: "Permissions" }, { id: "history", label: "Change history" }, { id: "settings", label: "Settings" }];
+  const t = [{ id: "team", label: "Team" }, { id: "permissions", label: "Permissions" }, { id: "partner-access", label: "Partner access" }, { id: "history", label: "Change history" }, { id: "settings", label: "Settings" }];
   const d = getData();
   let body;
   if (tab === "team") body = dataTable({ id: "team", caption: "Platform team", rows: d.team, minWidth: 980, search: (p) => p.name + " " + p.email + " " + p.role, searchLabel: "Search people",
@@ -178,10 +178,39 @@ export function renderTeam(r) {
   else if (tab === "permissions") body = alertBox("info", "In production these are enforced by the server behind Cloudflare Access and WorkOS passkeys (plan v3 D9).") +
     '<div class="card"><div class="table-scroll"><table class="data-table" style="min-width:900px"><caption class="sr-only">Permission matrix</caption><thead><tr><th scope="col">Capability</th><th scope="col">Platform owner (Developer)</th><th scope="col">Business partner</th><th scope="col">Client administrator</th></tr></thead><tbody>' +
     PERMISSIONS.map((p) => '<tr><th scope="row">' + h(p[0]) + "</th>" + p.slice(1).map((x) => "<td>" + (x === "No access" || x === "Never" ? badge(x, "draft") : h(x)) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div></div>";
+  else if (tab === "partner-access") body = partnerAccessPage(r);
   else if (tab === "history") { const cid = getFilter("hist-client"); body = historyTable("audit", d.audit.filter((a) => !cid || a.clientId === cid), { toolbar: '<div class="filters">' + clientFilter("hist-client", d.clients) + "</div>" }); }
   else if (tab === "settings") body = settings();
   else return notFound();
   return pageHeader({ title: "Platform team", description: "Your own staff and business partners who can open a console. Nobody here can open client records without client-granted support access.", actions: tab === "team" ? button("Add team member", "tm-add", { cls: "btn-primary" }) : "" }) + tabs(t, tab, "#/dev/team", "Platform team sections") + body;
+}
+function partnerAccessPage(r) {
+  const d = getData();
+  const pid = PARTNERS.some((p) => p.id === r.query.get("partner")) ? r.query.get("partner") : PARTNERS[0].id;
+  const pl = PARTNERS.find((p) => p.id === pid);
+  const pol = partnerAccess(pid);
+  const assigned = d.clients.filter((c) => c.partnerId === pid && c.accountStatus !== "Archived").sort((a, b) => a.name.localeCompare(b.name));
+  const shared = pol.clientMode === "selected" ? assigned.filter((c) => pol.clients.includes(c.id)).length : assigned.length;
+  const hidden = PARTNER_AREAS.filter((a) => !pol.areas[a.id]).length;
+  const chips = '<div class="view-chips" role="group" aria-label="Business partner">' + PARTNERS.map((p) => '<a href="#/dev/team?tab=partner-access&partner=' + p.id + '" class="' + (p.id === pid ? "active" : "") + '"' + (p.id === pid ? ' aria-current="true"' : "") + ">" + h(p.label) + " · " + h(p.person) + "</a>").join("") + "</div>";
+  const groups = [...new Set(PARTNER_AREAS.map((a) => a.group))];
+  const areaBoxes = groups.map((g) => '<fieldset class="pa-group"><legend>' + h(g) + "</legend>" + PARTNER_AREAS.filter((a) => a.group === g).map((a) => '<label class="check"><input type="checkbox" name="pa-area" value="' + a.id + '"' + (pol.areas[a.id] ? " checked" : "") + " /> " + h(a.label) + "</label>").join("") + "</fieldset>").join("");
+  const clientBoxes = assigned.map((c) => '<label class="check" data-pa-name="' + h(c.name.toLowerCase()) + '"><input type="checkbox" name="pa-client" value="' + c.id + '"' + (pol.clientMode === "all" || pol.clients.includes(c.id) ? " checked" : "") + " /> " + h(c.name) + ' <span class="muted small">' + h(c.subscription.status) + "</span></label>").join("");
+  return chips +
+    figureGrid([
+      figure({ label: "Assigned clients", value: assigned.length, icon: "building-2" }),
+      figure({ label: "Clients shared", value: shared, badge: pol.clientMode === "selected" ? "Selected only" : "All assigned", tone: pol.clientMode === "selected" ? "soon" : "done", icon: "users", testid: "pa-shared" }),
+      figure({ label: "Areas shared", value: PARTNER_AREAS.length - hidden + " of " + PARTNER_AREAS.length, badge: hidden ? hidden + " hidden" : "Everything", tone: hidden ? "soon" : "done", icon: "settings" }),
+    ], "Partner access figures") +
+    alertBox("info", "<strong>" + h(pl.label) + " sees only what you share.</strong> Hidden clients and areas don't appear in their workspace at all: no menu item, tab or figure, and direct links show the ordinary \"Page not found\". Nothing tells them their access is limited. Company-wide profit totals stay the same; unshared clients appear only as amounts without names.") +
+    '<form data-inline-form="partner-access" data-partner="' + pid + '"><section class="split">' +
+    card({ title: "Clients shared with " + h(pl.label), note: "Choose from the clients assigned to this partner.", body: '<div class="card-body pa-body">' +
+      '<div class="segment-radio" role="radiogroup" aria-label="Client access"><label class="check"><input type="radio" name="pa-mode" value="all"' + (pol.clientMode === "all" ? " checked" : "") + ' /> All assigned clients</label><label class="check"><input type="radio" name="pa-mode" value="selected"' + (pol.clientMode === "selected" ? " checked" : "") + " /> Only the clients I select</label></div>" +
+      '<div class="field"><label for="pa-q">Find a client</label><input id="pa-q" type="search" data-pa-search placeholder="Type to filter" /></div>' +
+      '<div class="pa-actions"><button type="button" class="btn btn-small" data-act="pa-all">Select all</button><button type="button" class="btn btn-small" data-act="pa-none">Clear</button></div>' +
+      '<div class="pa-list" role="group" aria-label="Clients">' + (clientBoxes || emptyLine("No assigned clients", "Assign clients from an organisation page.")) + "</div></div>" }) +
+    card({ title: "Areas shared", note: "Unticked areas are removed from " + h(pl.label) + "'s workspace.", body: '<div class="card-body pa-body">' + areaBoxes + "</div>" }) +
+    "</section>" + card({ title: "Save changes", body: '<div class="card-body">' + textarea("Reason for the change", "pa-reason", "", { rows: 2 }) + formError("pa-error") + '<div class="inline-actions">' + button("Save access", "pa-save", { cls: "btn-primary", submit: true }) + button("Open " + pl.label + "'s view", "pa-preview", { id: pid }) + "</div></div>" }) + "</form>";
 }
 function settings() {
   const d = getData();
@@ -255,6 +284,20 @@ export const actions = {
   "tm-role-save": (el) => { const f = formData(); finish(changeMemberRole(el.dataset.id, f["tr-role"], f["tr-reason"]), "Role changed"); },
   "tm-remove": (el) => { const p = getData().team.find((x) => x.id === el.dataset.id); dialog({ title: "Remove " + p.name + "?", description: "They lose console access at the next request.", body: textarea("Reason", "rm-reason", "", { rows: 2 }) + formError(), footer: button("Cancel", "close") + button("Remove access", "tm-remove-save", { id: p.id, cls: "btn-danger", submit: true }) }); },
   "tm-remove-save": (el) => finish(removeMember(el.dataset.id, formData()["rm-reason"]), "Access removed"),
+  "pa-all": () => document.querySelectorAll("[name=pa-client]").forEach((x) => { if (!x.closest("label").hidden) x.checked = true; }),
+  "pa-none": () => document.querySelectorAll("[name=pa-client]").forEach((x) => { if (!x.closest("label").hidden) x.checked = false; }),
+  "pa-preview": (el) => { const ui = getUi(); ui.inspect = el.dataset.id; saveUi(); go("#/biz"); },
+  "pa-save": () => {
+    const f = document.querySelector("[data-inline-form=partner-access]");
+    const pid = f.dataset.partner;
+    const mode = f.querySelector("[name=pa-mode]:checked")?.value || "all";
+    const clients = [...f.querySelectorAll("[name=pa-client]:checked")].map((x) => x.value);
+    const areas = {};
+    f.querySelectorAll("[name=pa-area]").forEach((x) => { areas[x.value] = x.checked; });
+    const res = setPartnerAccess(pid, { clientMode: mode, clients, areas }, f.querySelector("#pa-reason").value);
+    if (!res.ok) return showFormError(res.error, "pa-error");
+    rerender(); notify("Access saved for " + PARTNERS.find((p) => p.id === pid).label);
+  },
   "st-save": () => { const f = formData("[data-inline-form=settings]"); const res = updateSettings({ sandboxRetentionDays: f["st-ret"], sandboxMaxPerClient: f["st-max"], largeSeatApproval: f["st-large"], reason: f["st-reason"] }); if (!res.ok) return showFormError(res.error, "st-error"); rerender(); notify("Settings saved"); },
   "reset-preview": () => dialog({ title: "Reset preview data?", description: "Every change made in this browser is lost and the synthetic records are restored.", body: "", footer: button("Cancel", "close") + button("Reset preview data", "reset-confirm", { cls: "btn-danger", submit: true }) }),
   "reset-confirm": () => { resetPreview(); resetTables(); closeOverlay(true); go("#/dev"); rerender(); notify("Preview data reset"); },

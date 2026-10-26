@@ -70,11 +70,58 @@ export function scopeClients(workspace) {
   if (workspace === "biz") {
     if (ui.role === "client") return [];
     const pid = businessPartnerId();
-    return d.clients.filter((c) => c.partnerId === pid && c.accountStatus !== "Archived");
+    const pol = partnerAccess(pid);
+    return d.clients.filter((c) => c.partnerId === pid && c.accountStatus !== "Archived" && (pol.clientMode !== "selected" || pol.clients.includes(c.id)));
   }
   return [];
 }
 export const clientById = (id) => data.clients.find((c) => c.id === id);
+
+/* ---------------------------------------------------------- partner access */
+
+/**
+ * What the platform owner shares with each Business Partner. Hidden areas simply don't exist in the partner's
+ * workspace: no menu item, no tab, no figure, and direct links show the ordinary "Page not found". Nothing in the
+ * partner UI says that access is limited. Access can only be narrowed to the partner's own assigned clients.
+ */
+export const PARTNER_AREAS = [
+  { id: "clients", group: "Clients", label: "Client list" },
+  { id: "clients.subscriptions", group: "Clients", label: "Subscriptions and seats" },
+  { id: "clients.enterprise", group: "Clients", label: "Enterprise projects" },
+  { id: "client.billing", group: "Clients", label: "Client billing details" },
+  { id: "finance.overview", group: "Finance", label: "Finance overview" },
+  { id: "finance.revenue-expenses", group: "Finance", label: "Revenue and expenses" },
+  { id: "finance.profit", group: "Finance", label: "Shared profit reporting and profit figures" },
+  { id: "finance.invoices", group: "Finance", label: "Invoices" },
+  { id: "finance.distributions", group: "Finance", label: "Distributions" },
+  { id: "finance.reports", group: "Finance", label: "Reports and export" },
+  { id: "requests", group: "Workspace", label: "Requests" },
+  { id: "settings", group: "Workspace", label: "Business settings" },
+];
+export function partnerAccess(pid) {
+  const saved = (data.partnerAccess || {})[pid] || {};
+  const areas = {};
+  for (const a of PARTNER_AREAS) areas[a.id] = saved.areas?.[a.id] !== false;
+  return { clientMode: saved.clientMode === "selected" ? "selected" : "all", clients: Array.isArray(saved.clients) ? saved.clients : [], areas };
+}
+/** For the Business workspace: is this area shared with the partner being viewed? */
+export const partnerCan = (area) => ui.role === "client" ? false : partnerAccess(businessPartnerId()).areas[area] !== false;
+export function setPartnerAccess(pid, policy, reason) {
+  return run(() => {
+    requireDev(); requireReason(reason);
+    need(PARTNERS.some((p) => p.id === pid), "Unknown partner.");
+    const assigned = data.clients.filter((c) => c.partnerId === pid).map((c) => c.id);
+    const clients = (policy.clients || []).filter((id) => assigned.includes(id));
+    need(policy.clientMode !== "selected" || clients.length > 0, "Select at least one client, or share all assigned clients.");
+    const before = partnerAccess(pid);
+    data.partnerAccess = { ...(data.partnerAccess || {}), [pid]: { clientMode: policy.clientMode === "selected" ? "selected" : "all", clients, areas: { ...policy.areas } } };
+    const after = partnerAccess(pid);
+    const hidden = PARTNER_AREAS.filter((a) => !after.areas[a.id]).map((a) => a.label);
+    audit({ action: "Partner access changed: " + partnerOf(pid).label, before: before.clientMode === "selected" ? before.clients.length + " selected clients" : "All assigned clients",
+      after: (after.clientMode === "selected" ? after.clients.length + " selected clients" : "All assigned clients") + (hidden.length ? " · hidden: " + hidden.join(", ") : " · everything shared"), reason });
+    return ok();
+  });
+}
 export const deploymentFor = (clientId) => data.deployments.find((d) => d.clientId === clientId && d.env === "Production");
 export const actorName = () => (ui.role === "developer" ? "Platform owner" : partnerOf(ui.partner)?.label || "Unknown");
 

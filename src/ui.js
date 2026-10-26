@@ -193,11 +193,11 @@ export function dataTable(opts) {
   return '<div class="card data-card" data-table="' + h(opts.id) + '">' +
     ((search || opts.toolbar) ? '<div class="table-toolbar">' + search + (opts.toolbar || "") + "</div>" : "") +
     '<div class="table-scroll" tabindex="0" role="region" aria-label="' + h(opts.caption || opts.id) + '"><table class="data-table" style="min-width:' + (opts.minWidth || 720) + 'px"><caption class="sr-only">' + h(opts.caption || "") + "</caption><thead><tr>" + head + "</tr></thead><tbody>" + body + "</tbody></table></div>" +
-    '<div class="table-footer"><span data-testid="' + h(opts.id) + '-count">' + (total ? from + "–" + to + " of " + total + " record" + (total === 1 ? "" : "s") : "0 records") + "</span>" +
-    '<span class="pager"><label class="tiny" for="' + h(opts.id) + '-per">Rows per page</label> <select id="' + h(opts.id) + '-per" data-table-per="' + h(opts.id) + '">' + [10, 50, 100].map((n) => '<option value="' + n + '"' + (n === st.per ? " selected" : "") + ">" + n + "</option>").join("") + "</select>" +
-    ' <button type="button" class="btn btn-small btn-quiet" data-act="tbl-page" data-id="' + h(opts.id) + '" data-arg="-1"' + (st.page === 0 ? " disabled" : "") + ' aria-label="Previous page">‹</button>' +
+    '<div class="table-footer"><span class="pager-left"><label class="tiny" for="' + h(opts.id) + '-per">Rows per page</label> <select id="' + h(opts.id) + '-per" data-table-per="' + h(opts.id) + '">' + [10, 50, 100].map((n) => '<option value="' + n + '"' + (n === st.per ? " selected" : "") + ">" + n + "</option>").join("") + "</select>" +
+    '<span data-testid="' + h(opts.id) + '-count">' + (total ? from + "–" + to + " of " + total + " record" + (total === 1 ? "" : "s") : "0 records") + "</span></span>" +
+    '<span class="pager"><button type="button" class="btn btn-small" data-act="tbl-page" data-id="' + h(opts.id) + '" data-arg="-1"' + (st.page === 0 ? " disabled" : "") + ' aria-label="Previous page">Previous</button>' +
     '<span class="tiny">Page ' + (st.page + 1) + " of " + pages + "</span>" +
-    '<button type="button" class="btn btn-small btn-quiet" data-act="tbl-page" data-id="' + h(opts.id) + '" data-arg="1"' + (st.page >= pages - 1 ? " disabled" : "") + ' aria-label="Next page">›</button></span></div></div>';
+    '<button type="button" class="btn btn-small" data-act="tbl-page" data-id="' + h(opts.id) + '" data-arg="1"' + (st.page >= pages - 1 ? " disabled" : "") + ' aria-label="Next page">Next</button></span></div></div>';
 }
 
 /* ----------------------------------------------------------- sheets/dialogs */

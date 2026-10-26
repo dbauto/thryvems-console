@@ -52,3 +52,37 @@ test("ThryveMS screens retain responsive grid and accessible SVG icons in both a
     await page.screenshot({ path: testInfo.outputPath("partner-dark-" + width + ".png"), fullPage: true });
   }
 });
+
+test("Sidebar shows approved sub-pages for the active menu group", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/#/dev/finance");
+  const sub = page.locator(".sidebar .nav-sub a");
+  await expect(sub.filter({ hasText: "Shared profit reporting" })).toBeVisible();
+  await sub.filter({ hasText: "Distributions" }).click();
+  await expect(page).toHaveURL(/tab=distributions/);
+  await expect(sub.filter({ hasText: "Distributions" })).toHaveAttribute("aria-current", "page");
+  await page.evaluate(() => { const k = "thryvems.console.ui.v1"; const u = JSON.parse(localStorage.getItem(k) || "{}"); localStorage.setItem(k, JSON.stringify({ ...u, role: "partner", partner: "partner-a" })); });
+  await page.goto("/#/biz"); await page.reload();
+  await expect(page.locator(".sidebar .nav a[aria-label='Business settings']")).toBeVisible();
+});
+
+test("Mobile menu opens as a drawer and closes after navigating", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 850 });
+  await page.goto("/#/dev");
+  await expect(page.locator(".sidebar")).toBeHidden();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await page.locator(".sidebar .nav a[aria-label='Releases']").click();
+  await expect(page.getByRole("heading", { name: "Releases", level: 1 })).toBeVisible();
+  await expect(page.locator(".sidebar")).toBeHidden();
+});
+
+test("Tables use the ThryveMS footer: rows per page and Previous / Page x of y / Next", async ({ page }) => {
+  await page.goto("/#/dev/organisations");
+  const footer = page.locator(".table-footer").first();
+  await expect(footer.getByLabel("Rows per page")).toBeVisible();
+  await expect(footer.getByRole("button", { name: "Previous page" })).toBeDisabled();
+  await expect(footer).toContainText(/Page 1 of \d+/);
+  await footer.getByRole("button", { name: "Next page" }).click();
+  await expect(footer).toContainText(/Page 2 of/);
+});

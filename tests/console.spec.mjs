@@ -43,10 +43,11 @@ test("partners see totals but not other partners' client details or developer pa
 test("developer creates a sandbox without production side effects and it persists", async ({ page }) => {
   await page.goto("/#/deployments/sandboxes");
   await page.getByRole("button", { name: "Create sandbox" }).click();
-  await page.getByLabel("Client (type a name to search)").fill("Calamba Precision");
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Client (type a name to search)").fill("Calamba Precision");
   await expect(page.locator("#sb-source")).toHaveValue("prd-calamba-01");
-  await page.getByLabel("Purpose").selectOption("Bug fix");
-  await page.getByLabel("Issue or change reference").fill("SYNTH-101");
+  await dlg.getByLabel("Purpose").selectOption("Bug fix");
+  await dlg.getByLabel("Issue or change reference").fill("SYNTH-101");
   await page.getByRole("button", { name: "Create preview sandbox" }).click();
   await expect(page.getByText(/SYNTH-101/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Request production promotion" })).toBeDisabled();

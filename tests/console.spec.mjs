@@ -1,71 +1,96 @@
 import { test, expect } from "@playwright/test";
-test("developer previews a sandbox without production side effects",async ({page})=>{
-  await page.goto("/");
-  await expect(page.getByRole("heading",{name:"Developer overview"})).toBeVisible();
-  await page.getByRole("button",{name:"Deployments",exact:true}).first().click();
-  await page.getByRole("button",{name:"+ Create sandbox"}).click();
-  await expect(page.locator("input[disabled]")).toHaveValue("Synthetic sample data only");
-  await page.getByLabel("Client (type a name to search)").fill("Sample Services");
-  await page.getByLabel("Change type").selectOption("Bug fix");
-  await page.getByLabel("Issue or change reference").fill("SYNTH-101");
-  await page.getByRole("button",{name:"Create preview sandbox"}).click();
-  await expect(page.getByText(/SYNTH-101/)).toBeVisible();
-  await expect(page.getByRole("button",{name:"Promote"}).first()).toBeDisabled();
-  await expect(page.getByText("Sample Services · Sandbox")).toBeVisible();
-  await page.reload();
-  await page.getByRole("button",{name:"Deployments",exact:true}).first().click();
-  await expect(page.getByText("Sample Services · Sandbox")).toBeVisible();
-});
-test("partner assignment hides other partners and developer pages",async ({page})=>{
-  await page.goto("/");
-  await page.getByLabel("Preview, view as").selectOption("partner-a");
-  await expect(page.getByRole("heading",{name:"Business overview"})).toBeVisible();
-  await expect(page.getByRole("button",{name:"Deployments"})).toHaveCount(0);
-  await page.getByRole("button",{name:"Clients",exact:true}).first().click();
-  await expect(page.getByText("Demo Manufacturing")).toBeVisible();
-  await expect(page.getByText("Example Logistics")).toHaveCount(0);
-  await page.getByLabel("Preview, view as").selectOption("partner-b");
-  await page.getByRole("button",{name:"Clients",exact:true}).first().click();
-  await expect(page.getByText("Example Logistics")).toBeVisible();
-  await expect(page.getByText("Demo Manufacturing")).toHaveCount(0);
-  await page.getByLabel("Preview, view as").selectOption("client");
-  await expect(page.getByRole("heading",{name:"Page not found"})).toBeVisible();
-});
-test("partner finance hides infrastructure figures",async ({page})=>{
-  await page.goto("/");
-  await page.getByLabel("Preview, view as").selectOption("partner-a");
-  await page.getByRole("button",{name:"Finance",exact:true}).first().click();
-  await expect(page.getByRole("heading",{name:"Finance"})).toBeVisible();
-  await expect(page.getByRole("columnheader",{name:"Infrastructure"})).toHaveCount(0);
-  await expect(page.getByText("Actual operating profit")).toHaveCount(0);
-  await expect(page.getByText("Partner allocation · 70%")).toBeVisible();
-});
-test("responsive screenshots at 390/768/1280/1920 in both appearances",async ({page},testInfo)=>{
-  for(const width of [390,768,1280,1920]){
-    await page.setViewportSize({width,height:850});
-    await page.goto("/");
-    await expect(page.getByRole("heading",{name:"Developer overview"})).toBeVisible();
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
-    if(width<768) {
-      const noOverlap=await page.evaluate(()=>{
-        const brand=document.querySelector(".topbar-left").getBoundingClientRect();
-        const switcher=document.querySelector(".topbar-right").getBoundingClientRect();
-        return brand.bottom<=switcher.top;
-      });
-      expect(noOverlap).toBeTruthy();
-    }
-    await page.screenshot({path:testInfo.outputPath("developer-light-"+width+".png"),fullPage:true});
-    await page.getByRole("button",{name:"Toggle light and dark appearance"}).click();
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
-    await page.screenshot({path:testInfo.outputPath("developer-dark-"+width+".png"),fullPage:true});
+
+const netProfit = async (page) => (await page.locator(".pl tr.net td.num").innerText()).trim();
+const viewAs = (page, who) => page.getByLabel("Preview, view as").selectOption(who);
+
+test("both workspaces show the same net profit for every period", async ({ page }) => {
+  for (const period of ["2026-10", "2026-09", "2026-Q3", "2026-YTD"]) {
+    await page.goto("/#/finance/profit");
+    await viewAs(page, "developer");
+    await page.goto("/#/finance/profit");
+    await page.locator('[data-global="period"]').selectOption(period);
+    const dev = await netProfit(page);
+    await viewAs(page, "partner-a");
+    await page.goto("/#/finance/profit");
+    await page.locator('[data-global="period"]').selectOption(period);
+    expect(await netProfit(page), "period " + period).toBe(dev);
+    await viewAs(page, "partner-b");
+    await page.goto("/#/finance/profit");
+    await page.locator('[data-global="period"]').selectOption(period);
+    expect(await netProfit(page), "period " + period).toBe(dev);
   }
-  for(const width of [390,1280]){
-    await page.setViewportSize({width,height:850});
-    await page.goto("/");
-    await page.getByLabel("Preview, view as").selectOption("partner-a");
-    await expect(page.getByRole("heading",{name:"Business overview"})).toBeVisible();
-    await page.screenshot({path:testInfo.outputPath("partner-light-"+width+".png"),fullPage:true});
-    await page.getByRole("button",{name:"Toggle light and dark appearance"}).click();
-    await page.screenshot({path:testInfo.outputPath("partner-dark-"+width+".png"),fullPage:true});
+  await expect(page.getByText("Same as the Developer Console.")).toBeVisible();
+});
+
+test("partners see totals but not other partners' client details or developer pages", async ({ page }) => {
+  await page.goto("/#/overview");
+  await viewAs(page, "partner-a");
+  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Deployments" })).toHaveCount(0);
+  await page.goto("/#/clients/list");
+  await expect(page.getByRole("link", { name: "Arden & Co." })).toBeVisible();
+  await expect(page.getByText("Pasig Electronics")).toHaveCount(0);
+  await page.goto("/#/finance/revenue-expenses");
+  await expect(page.getByText("Another partner’s client").first()).toBeVisible();
+  await page.goto("/#/deployments/production");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await page.goto("/#/organisations/pasig");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await viewAs(page, "client");
+  await expect(page.getByRole("heading", { name: "No access to the platform console" })).toBeVisible();
+});
+
+test("developer creates a sandbox without production side effects and it persists", async ({ page }) => {
+  await page.goto("/#/deployments/sandboxes");
+  await page.getByRole("button", { name: "Create sandbox" }).click();
+  await page.getByLabel("Client (type a name to search)").fill("Calamba Precision");
+  await expect(page.locator("#sb-source")).toHaveValue("prd-calamba-01");
+  await page.getByLabel("Purpose").selectOption("Bug fix");
+  await page.getByLabel("Issue or change reference").fill("SYNTH-101");
+  await page.getByRole("button", { name: "Create preview sandbox" }).click();
+  await expect(page.getByText(/SYNTH-101/).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Request production promotion" })).toBeDisabled();
+  await page.reload();
+  await page.goto("/#/deployments/sandboxes");
+  await expect(page.getByText("Calamba Precision")).toBeVisible();
+});
+
+test("tables search, sort and paginate with 10 rows by default", async ({ page }) => {
+  await page.goto("/#/finance/costs");
+  await expect(page.getByText(/1–10 of \d+/)).toBeVisible();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByText(/Page 2 of/)).toBeVisible();
+  await page.getByPlaceholder("Search vendor, client or reference").fill("Neon");
+  await expect(page.locator('[data-tbody="costs"] tbody tr')).toHaveCount(1);
+  await page.getByLabel("Rows per page").selectOption("50");
+});
+
+test("subscription change needs an effective date and reason", async ({ page }) => {
+  await page.goto("/#/organisations/arden");
+  await page.getByRole("button", { name: "Change subscription" }).first().click();
+  await page.getByLabel("Purchased seats").fill("70");
+  await page.getByRole("button", { name: "Save change" }).click();
+  await expect(page.getByText("Choose the effective date.")).toBeVisible();
+  await page.getByLabel("Effective date").fill("2026-11-01");
+  await page.getByLabel("Reason").fill("Night shift");
+  await page.getByRole("button", { name: "Save change" }).click();
+  await page.getByRole("tab", { name: "Lifecycle history" }).click();
+  await expect(page.getByText("Seats 60 → 70")).toBeVisible();
+});
+
+test("responsive screenshots at 390/768/1280/1920 in both appearances", async ({ page }, testInfo) => {
+  for (const width of [390, 768, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [who, path] of [["developer", "/#/overview"], ["developer", "/#/finance/profit"], ["partner-a", "/#/overview"], ["partner-a", "/#/finance/profit"]]) {
+      await page.goto(path);
+      await viewAs(page, who);
+      await page.goto(path);
+      await expect(page.locator("h1").first()).toBeVisible();
+      for (const theme of ["light", "dark"]) {
+        if ((await page.evaluate(() => document.documentElement.classList.contains("dark"))) !== (theme === "dark")) await page.getByRole("button", { name: "Toggle light and dark appearance" }).click();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), who + " " + path + " " + width + " " + theme).toBeTruthy();
+        await page.screenshot({ path: testInfo.outputPath(who + "-" + path.replace(/\W+/g, "-") + "-" + theme + "-" + width + ".png"), fullPage: true });
+      }
+    }
   }
 });

@@ -7,15 +7,15 @@
 - Dark platform navigation, organisations and client account/provisioning status.
 - Per-client production version, isolated sandbox preview records and app version choice.
 - Compare environment version labels; production promotion/rollback deliberately disabled until a qualified backend exists.
-- Developer-only per-client/overall revenue, actual infrastructure costs, operational expenses and profit.
+- Superseded 26 Oct 2026: finance now uses one shared ledger and one profit calculation for both workspaces (see progress and backend ADR-004).
 - Platform team role-boundary explanation.
 - All actions and numbers are illustrative; sandbox creation operates only in browser storage.
 
 ## Business partner
 
 - Clients strictly assigned to the selected partner within the preview.
-- Commercial revenue, assigned expenses, profit and illustrative 30%/70% allocation.
-- No developer operating costs, deployment versions, sandbox controls or QMS records presented.
+- Same company-wide revenue, expenses and net profit as the Developer; other partners' client details hidden; 30%/70% distribution shown separately.
+- No deployment controls, sandbox controls, credentials or QMS records presented.
 - Production must deliver server-filtered partner projections, not client-side filters.
 
 ## Backend impact assessment — Pending

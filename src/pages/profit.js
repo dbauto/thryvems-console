@@ -137,7 +137,7 @@ export function profitReport(ws, r) {
   }
   if (view === "trends") {
     const t = MONTHS.map((m) => ({ m, p: sharedProfit(d, [m]) }));
-    body = card({ title: "Revenue, expenses and net profit by month", body: '<div class="card-body">' + svgBars([{ name: "Revenue", values: t.map((x) => ({ label: monthShort(x.m), value: x.p.revenue })) }, { name: "Expenses", values: t.map((x) => ({ label: monthShort(x.m), value: x.p.expenses })) }, { name: "Net profit", values: t.map((x) => ({ label: monthShort(x.m), value: Math.max(0, x.p.net) })) }], { label: "Revenue, expenses and net profit by month", format: money }) + "</div>" +
+    body = card({ title: "Revenue, expenses and net profit by month", body: '<div class="card-body">' + profitChart(t.map((x) => ({ m: x.m, s: x.p }))) + "</div>" +
       '<div class="table-scroll plain"><table class="data-table"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Expenses</th><th scope="col">Adjustments</th><th scope="col">Net profit</th><th scope="col">Margin</th></tr></thead><tbody>' + t.map((x) => "<tr><td>" + h(monthLabel(x.m)) + "</td><td>" + moneyCell(x.p.revenue) + "</td><td>" + moneyCell(x.p.expenses) + "</td><td>" + moneyCell(x.p.approvedAdjustments) + "</td><td>" + moneyCell(x.p.net) + "</td><td>" + pct(x.p.margin) + "</td></tr>").join("") + "</tbody></table></div>" });
   }
   if (view === "budget") body = card({ title: "Budget versus actual", body: '<div class="empty"><strong>No budget records yet</strong>Add a budget for a period to compare it with actual figures. Nothing is estimated here.</div>' });
@@ -157,4 +157,37 @@ export function profitCsv(months) {
   return [["line", "amount_php"], ["Subscription revenue", p.subscription], ["Enterprise project revenue", p.enterprise], ["Revenue adjustments", p.revenueAdjustments], ["Recognised revenue", p.revenue],
     ["Direct infrastructure", -p.direct], ["Shared infrastructure", -p.shared], ["Unallocated platform costs", -p.unallocated], ["Other operating expenses", -p.opex], ["Shared business expenses", -p.sharedBusiness], ["Recognised expenses", -p.expenses],
     ["Approved adjustments", p.approvedAdjustments], ["Net profit", p.net], ["Profit margin", p.margin == null ? "No data" : (p.margin * 100).toFixed(1) + "%"]];
+}
+
+/**
+ * Revenue and expenses as paired bars per month, net profit as a line on the same scale.
+ * Bars compare amounts; the line shows the profit trend. Shared by both workspaces.
+ */
+export function profitChart(trend) {
+  const W = 680, H = 280, L = 64, R = 16, T = 16, B = 34;
+  const rows = trend.map((t) => ({ label: monthShort(t.m), full: monthLabel(t.m), rev: t.s.revenue, exp: t.s.expenses, net: t.s.net }));
+  const max = Math.max(1, ...rows.flatMap((r) => [r.rev, r.exp, r.net]));
+  const min = Math.min(0, ...rows.map((r) => r.net));
+  const step = niceStep((max - min) / 4);
+  const top = Math.ceil(max / step) * step, bot = Math.floor(min / step) * step;
+  const y = (v) => T + ((top - v) / (top - bot)) * (H - T - B);
+  const band = (W - L - R) / rows.length, bw = Math.min(28, band * 0.26);
+  const cx = (i) => L + band * i + band / 2;
+  const short = (v) => (Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + "k" : String(v));
+  let g = "";
+  for (let v = bot; v <= top + 0.001; v += step) g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" class="pc-grid' + (v === 0 ? " zero" : "") + '"/><text x="' + (L - 8) + '" y="' + (y(v) + 4) + '" class="pc-axis" text-anchor="end">₱' + short(v) + "</text>";
+  const bars = rows.map((r, i) => {
+    const bar = (v, x, cls, name) => '<rect class="' + cls + '" x="' + x + '" y="' + Math.min(y(v), y(0)) + '" width="' + bw + '" height="' + Math.max(1, Math.abs(y(0) - y(v))) + '" rx="3"><title>' + h(r.full) + " · " + name + ": " + h(money(v)) + "</title></rect>";
+    return bar(r.rev, cx(i) - bw - 2, "pc-rev", "Revenue") + bar(r.exp, cx(i) + 2, "pc-exp", "Expenses") + '<text x="' + cx(i) + '" y="' + (H - 10) + '" class="pc-axis" text-anchor="middle">' + h(r.label) + "</text>";
+  }).join("");
+  const pts = rows.map((r, i) => cx(i) + "," + y(r.net)).join(" ");
+  const dots = rows.map((r, i) => '<circle class="pc-dot" cx="' + cx(i) + '" cy="' + y(r.net) + '" r="4.5"><title>' + h(r.full) + " · Net profit: " + h(money(r.net)) + "</title></circle>").join("");
+  const desc = rows.map((r) => r.full + ": revenue " + money(r.rev) + ", expenses " + money(r.exp) + ", net profit " + money(r.net)).join("; ");
+  return '<figure class="profit-chart" data-testid="profit-chart"><div class="pc-legend"><span><i class="sw rev"></i>Revenue</span><span><i class="sw exp"></i>Expenses</span><span><i class="sw net"></i>Net profit</span></div>' +
+    '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue, expenses and net profit by month. ' + h(desc) + '">' + g + bars + '<polyline class="pc-line" points="' + pts + '"/>' + dots + "</svg></figure>";
+}
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
 }

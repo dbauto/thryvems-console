@@ -51,3 +51,6 @@
 
 ## 26 Oct 2026 — Sign-in is UI only (PR #9)
 - ✅ Owner request: Sign in opens the console without checking credentials. Email prefilled with the platform owner; a partner email opens that partner's workspace. Real auth stays with the backend (plan v3 D9), Pending.
+
+## 26 Oct 2026 — Profit by month chart (PR #10)
+- ✅ Revenue and expenses as paired bars per month with net profit as a line, in Finance › Overview (both workspaces) and Shared profit reporting › Trends. Same sharedProfit() figures; table kept below the chart for exact values.

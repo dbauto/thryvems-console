@@ -1,7 +1,7 @@
 /** Developer Console › Finance. One shared profit calculation (finance.sharedProfit) is used here and in the Business Partner workspace. */
 import { getData, clientById, scopeClients, addCost, COST_CATEGORIES, updatePricing, addAdjustment, createProject, updateProject, completeMilestone, addMilestone, editMilestoneAmount, PROJECT_STATES, publishStatement, addDistributionAdjustment, recordPayout } from "../store.js";
 import { sharedProfit, actualCosts, distribution, currentPricing, chargeBreakdown, invoiceTotals, revenueByClient, liveInMonth, activeUsersAt, DEVELOPER_SHARE, PARTNER_SHARE } from "../finance.js";
-import { profitReport, profitFigures, sameBanner, plRows, profitCsv } from "./profit.js";
+import { profitReport, profitFigures, sameBanner, plRows, profitCsv, profitChart } from "./profit.js";
 import { PLANS, CAPACITY_TIERS, PARTNERS } from "../seed.js";
 import { h, pageHeader, badge, keyFacts, dataTable, sheet, dialog, button, input, select, textarea, combobox, formError, readForm, showFormError, closeOverlay, alertBox, card, row, linkTo, moneyCell, emptyLine, figure, figureGrid, basisBadge, svgBars } from "../ui.js";
 import { money, pct, formatDate, formatDateTime, MONTHS, monthShort, monthLabel, CURRENT_MONTH, TODAY, sum, addDays } from "../util.js";
@@ -40,7 +40,7 @@ function overview() {
     ], "Expense and distribution figures") +
     (one ? card({ title: "Selected client: " + h(one.client.name), note: "Revenue minus this client's direct and shared infrastructure. Company-wide costs are not split by client.", body: '<div class="card-body">' + keyFacts([["Revenue", h(money(one.revenue))], ["Direct infrastructure", h(money(one.direct))], ["Shared infrastructure share", h(money(one.shared))], ["Profit from this client", h(money(one.profit)) + " · margin " + pct(one.margin)]]) + "</div>" }) : "") +
     card({ title: "Month-over-month trend", note: "Company-wide, one calculation.", body: '<div class="card-body">' +
-      svgBars([{ name: "Revenue", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.revenue })) }, { name: "Recognised expenses", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.expenses })) }, { name: "Net profit", values: trend.map((t) => ({ label: monthShort(t.m), value: Math.max(0, t.s.net) })) }], { label: "Revenue, expenses and net profit by month", format: money }) +
+      profitChart(trend) +
       '<div class="table-scroll"><table class="data-table" style="min-width:720px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Recognised expenses</th><th scope="col">Net profit</th><th scope="col">Margin</th><th scope="col">Change in profit</th></tr></thead><tbody>' +
       trend.map((t, i) => { const prev = trend[i - 1]; const delta = prev ? t.s.net - prev.s.net : null; return "<tr><td>" + h(monthLabel(t.m)) + "</td><td>" + moneyCell(t.s.revenue) + "</td><td>" + moneyCell(t.s.expenses) + (t.s.incomplete ? " " + badge("Incomplete") : "") + "</td><td>" + moneyCell(t.s.net) + "</td><td>" + pct(t.s.margin) + "</td><td>" + (delta == null ? '<span class="muted">No data</span>' : moneyCell(delta)) + "</td></tr>"; }).join("") + "</tbody></table></div></div>" }) +
     '<h2 class="section-title">Profit by client</h2>' +

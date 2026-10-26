@@ -270,3 +270,15 @@ test.describe("sign-in", () => {
     await expect(page.locator("main h1").first()).toHaveText("Page not found");
   });
 });
+
+test("Finance overview shows revenue and expense bars with a net profit line in both workspaces", async ({ page }) => {
+  for (const [role, url] of [["developer", "/#/dev/finance"], ["partner-a", "/#/biz/finance"]]) {
+    await asRole(page, role);
+    await page.goto(url);
+    const chart = page.getByTestId("profit-chart");
+    await expect(chart).toBeVisible();
+    await expect(chart.locator("rect.pc-rev")).toHaveCount(4);
+    await expect(chart.locator("rect.pc-exp")).toHaveCount(4);
+    await expect(chart.locator("circle.pc-dot")).toHaveCount(4);
+  }
+});

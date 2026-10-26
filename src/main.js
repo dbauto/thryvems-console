@@ -1,6 +1,6 @@
 /**
  * ThryveMS Console: shell, router, sign-in and event wiring.
- * Sign-in here is front-end only until the backend auth lands (plan v3 D9: Cloudflare Access + WorkOS
+ * Sign-in is UI only (no credential check) until the backend auth lands (plan v3 D9: Cloudflare Access + WorkOS
  * passkeys, server-side authorization). It selects the signed-in account's role; it is not a security boundary.
  */
 import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting, getData } from "./store.js";
@@ -136,7 +136,6 @@ export const ACCOUNTS = [
   { email: "partner-a@partners.example", role: "partner", partner: "partner-a", name: "Mara Santos", title: "Business partner · Partner A" },
   { email: "partner-b@partners.example", role: "partner", partner: "partner-b", name: "Jun Reyes", title: "Business partner · Partner B" },
 ];
-const PASSWORD = "ThryveMS-2026";
 function currentAccount() {
   const ui = getUi();
   return ACCOUNTS.find((a) => a.email === ui.email) || ACCOUNTS.find((a) => a.role === ui.role && (a.role !== "partner" || a.partner === ui.partner)) || ACCOUNTS[0];
@@ -158,7 +157,7 @@ function topControls(ws) {
   html += '<details class="account-menu"><summary aria-label="Account menu"><span class="avatar" aria-hidden="true">' + h(initials(a.name)) + '</span></summary><div class="account-pop" role="menu"><div class="account-who"><strong>' + h(a.name) + "</strong><small>" + h(a.email) + "</small><small>" + h(a.title) + '</small></div><button type="button" role="menuitem" class="btn btn-small" data-act="sign-out">' + lucideIcon("log-out") + " Sign out</button></div></details>";
   return html;
 }
-let loginState = { error: "", info: "", email: "" };
+let loginState = { error: "", info: "", email: "owner@platform.example" };
 function renderLogin() {
   const ui = getUi();
   document.documentElement.classList.toggle("dark", ui.theme === "dark");
@@ -181,11 +180,9 @@ document.addEventListener("submit", (e) => {
   if (!f) return;
   e.preventDefault();
   const email = String(f.email.value || "").trim().toLowerCase();
-  const pw = String(f.password.value || "");
   loginState = { error: "", info: "", email };
-  if (!email || !pw) { loginState.error = "Enter your email and password."; renderLogin(); return; }
-  const acct = ACCOUNTS.find((a) => a.email === email);
-  if (!acct || pw !== PASSWORD) { loginState.error = "We couldn't sign you in. Check your email and password."; renderLogin(); return; }
+  // UI only: no credential check. A partner email opens that partner's workspace; anything else signs in as the platform owner.
+  const acct = ACCOUNTS.find((a) => a.email === email) || ACCOUNTS[0];
   const ui = getUi();
   ui.signedIn = true; ui.email = acct.email; ui.role = acct.role; if (acct.partner) ui.partner = acct.partner;
   saveUi(); loginState = { error: "", info: "", email: "" };
@@ -220,7 +217,7 @@ const builtins = {
   backdrop: (el, e) => { if (e.target === el) closeOverlay(); },
   discard: () => closeOverlay(true),
   "keep-editing": () => { const w = document.querySelector(".dirty-warning"); if (w) w.hidden = true; document.querySelector(".modal-content input,.modal-content textarea,.modal-content select")?.focus(); },
-  "sign-out": () => { const ui = getUi(); ui.signedIn = false; ui.email = ""; saveUi(); closeOverlay(true); loginState = { error: "", info: "You've been signed out.", email: "" }; renderLogin(); },
+  "sign-out": () => { const ui = getUi(); ui.signedIn = false; ui.email = ""; saveUi(); closeOverlay(true); loginState = { error: "", info: "You've been signed out.", email: "owner@platform.example" }; renderLogin(); },
   "forgot-password": () => { const v = document.getElementById("login-email")?.value || ""; loginState = { error: "", info: "If an account exists for that email, a reset link will be sent. Ask the platform owner if you don't receive it.", email: v }; renderLogin(); },
   theme: () => { const ui = getUi(); ui.theme = ui.theme === "dark" ? "light" : "dark"; saveUi(); render(); },
   "open-drawer": () => { drawerOpen = true; render(); document.querySelector(".sidebar .nav a")?.focus(); },

@@ -48,3 +48,6 @@
 - ✅ Fixed blank icons and fallback font on GitHub Pages: icons.svg and Public Sans (OFL) are committed at the repo root; the build fails if an icon is missing.
 - ✅ Typecheck, unit (10), build and e2e (22 passed) green in CI at code SHA af2006b7.
 - ✅ No production deployment. Backend synchronization remains **Pending**.
+
+## 26 Oct 2026 — Sign-in is UI only (PR #9)
+- ✅ Owner request: Sign in opens the console without checking credentials. Email prefilled with the platform owner; a partner email opens that partner's workspace. Real auth stays with the backend (plan v3 D9), Pending.

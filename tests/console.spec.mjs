@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-const asRole = async (page, role) => { await page.goto("/"); await page.selectOption("#preview-role", role); };
+const setUi = async (page, patch) => {
+  await page.goto("/");
+  await page.evaluate((p) => { const k = "thryvems.console.ui.v1"; const u = JSON.parse(localStorage.getItem(k) || "{}"); localStorage.setItem(k, JSON.stringify({ ...u, signedIn: true, ...p })); }, patch);
+  await page.reload();
+};
+const asRole = (page, role) => setUi(page, role === "developer" ? { role: "developer", email: "owner@platform.example" } : role === "client" ? { role: "client", email: "" } : { role: "partner", partner: role, email: role + "@partners.example" });
 const h1 = (page) => page.locator("main h1").first();
 const sheet = (page) => page.locator("#dialog-root [role=dialog]");
 const pickClient = async (page, id, name) => { await page.fill(id, name); await page.locator(id).dispatchEvent("change"); };
@@ -209,12 +214,11 @@ test.describe("sandbox and release workflow", () => {
 
 test.describe("states and placeholders", () => {
   test("loading, empty and error states render", async ({ page }) => {
-    await page.goto("/#/dev/organisations");
-    await page.selectOption("#data-state", "Loading");
+    await setUi(page, { dataState: "Loading" }); await page.goto("/#/dev/organisations");
     await expect(page.getByRole("status").first()).toBeAttached();
-    await page.selectOption("#data-state", "Empty");
+    await setUi(page, { dataState: "Empty" }); await page.goto("/#/dev/organisations");
     await expect(page.getByText("No organisations")).toBeVisible();
-    await page.selectOption("#data-state", "Error");
+    await setUi(page, { dataState: "Error" }); await page.goto("/#/dev/organisations");
     await expect(page.getByText("This page couldn't load")).toBeVisible();
     await page.getByRole("button", { name: "Try again" }).click();
     await expect(h1(page)).toHaveText("Organisations");
@@ -246,4 +250,29 @@ test("responsive and themed screenshots without overflow", async ({ page }, info
       }
     }
   }
+});
+
+test.describe("sign-in", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+  test("signed-out visitors see the sign-in page, wrong passwords are rejected, roles land in their workspace", async ({ page }) => {
+    await page.goto("/#/dev/finance");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.locator("text=Preview")).toHaveCount(0);
+    await page.fill("#login-email", "owner@platform.example");
+    await page.fill("#login-password", "wrong-password");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.locator("#login-error")).toContainText("couldn't sign you in");
+    await page.fill("#login-password", "ThryveMS-2026");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.locator("main h1").first()).toHaveText("Developer overview");
+    await page.getByLabel("Account menu").click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await expect(page.getByText("You've been signed out.")).toBeVisible();
+    await page.fill("#login-email", "partner-b@partners.example");
+    await page.fill("#login-password", "ThryveMS-2026");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.locator("main h1").first()).toHaveText("Business overview");
+    await page.goto("/#/dev");
+    await expect(page.locator("main h1").first()).toHaveText("Page not found");
+  });
 });

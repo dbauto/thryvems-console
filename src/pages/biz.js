@@ -259,7 +259,7 @@ export function renderSettings() {
     card({ title: "Preferences", body: '<form class="card-body" data-inline-form="bz-settings">' + input("Display name", "bs-name", s.displayName) +
       select("Default reporting period", "bs-period", s.reportPeriod, ["Month", "Quarter", "Year"]) +
       '<fieldset class="field"><legend>Notifications</legend><label class="ms-item"><input type="checkbox" name="bs-req" value="1"' + (s.notifyRequests ? " checked" : "") + " /> When a request is decided</label>" +
-      '<label class="ms-item"><input type="checkbox" name="bs-inv" value="1"' + (s.notifyInvoices ? " checked" : "") + " /> When a client invoice becomes overdue</label><small>Preview only: no email is sent.</small></fieldset>" +
+      '<label class="ms-item"><input type="checkbox" name="bs-inv" value="1"' + (s.notifyInvoices ? " checked" : "") + " /> When a client invoice becomes overdue</label><small>Sent to your account email.</small></fieldset>" +
       formError("bs-error") + act("Save settings", "bz-settings-save", { cls: "btn-primary", submit: true }) + "</form>" }) +
     card({ title: "Your authority", note: "Set by the platform owner.", body: '<div class="card-body">' + keyFacts([["Partner", h(pl.label)], ["Assigned clients", h(scopeClients("biz").length)], ["Seat changes", "Request up to " + pl.seatAuthority + " seats per client; the platform owner approves"], ["New client accounts", pl.canRequestClients ? "By request, approved by the platform owner" : "Not allowed"], ["Sign-in", "Cloudflare Access + WorkOS passkey (production)"]]) + "</div>" });
 }

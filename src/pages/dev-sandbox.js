@@ -95,7 +95,7 @@ function config(s, dep) {
 
 function tests(s, status) {
   const open = ["Ready", "Testing", "Ready for review"].includes(status);
-  return card({ title: "Test results", note: "Results are recorded from CI runs or manual testing. The preview doesn't run tests.", action: '<div class="inline-actions">' + unavailable("Run tests", "Needs CI integration") + (open ? button("Record test result", "sb-test", { id: s.id, cls: "btn-small" }) : "") + "</div>",
+  return card({ title: "Test results", note: "Results are recorded from CI runs or manual testing.", action: '<div class="inline-actions">' + unavailable("Run tests", "Needs CI integration") + (open ? button("Record test result", "sb-test", { id: s.id, cls: "btn-small" }) : "") + "</div>",
     body: s.tests.length ? s.tests.slice().reverse().map((t) => row(h(t.name) + " · v" + h(t.version || s.targetVersion), formatDateTime(t.at) + " · " + h(t.by) + (t.notes ? " · " + h(t.notes) : "") + (t.link ? " · " + '<a href="' + h(t.link) + '" target="_blank" rel="noopener">CI run ↗</a>' : ""), badge(t.result))).join("") : emptyLine("No test results", "Record results once the sandbox is Ready.") });
 }
 function changes(s) {
@@ -128,7 +128,7 @@ function compare(s, c, dep) {
 function readinessTab(s, status) {
   const checks = readiness(s);
   const ready = checks.every((x) => x.ok);
-  return card({ title: "Release readiness", note: "Every check must pass before production promotion can be requested. Production deployment itself stays disabled in the preview.", body:
+  return card({ title: "Release readiness", note: "Every check must pass before production promotion can be requested.", body:
     '<ul class="checklist card-body">' + checks.map((x) => '<li class="' + (x.ok ? "ok" : "bad") + '">' + badge(x.ok ? "Passed" : "Not yet", x.ok ? "done" : "soon") + " " + h(x.label) + "</li>").join("") + "</ul>" +
     '<div class="card-body">' + (ready ? alertBox("info", "<strong>Ready.</strong> " + (s.promotionRequestId ? "Promotion requested (" + h(s.promotionRequestId) + ")." : "You can request production promotion.")) : alertBox("warning", "Not ready for promotion yet.")) +
     '<div class="inline-actions">' + (status === "Approved for release" && !s.promotionRequestId ? button("Request production promotion", "sb-promote", { id: s.id, cls: "btn-primary" }) : "") + unavailable("Deploy to production", "Needs the approved backend pipeline and the owner's approval in GitHub") + "</div></div>" });
@@ -148,7 +148,7 @@ function createSheet() {
   const c = form.clientId ? clientById(form.clientId) : null;
   const dep = c ? deploymentFor(c.id) : null;
   const n = c ? activeSandboxes(c.id).length : 0;
-  sheet({ title: "Create sandbox", description: "An isolated environment for one client. Simulated in this preview: no cloud resources are created and production is never changed.", wide: true, body:
+  sheet({ title: "Create sandbox", description: "An isolated environment for one client. Production is never changed.", wide: true, body:
     combobox("Client organisation", "sb-client", c?.name || "", eligible.map((x) => x.name), { hint: "Type to search clients with a live production deployment." }) +
     (c ? '<p class="small muted" data-testid="sb-source">Source production: <code>' + h(dep.worker) + "</code> · v" + h(dep.version) + " · " + n + " of " + d.settings.sandboxMaxPerClient + " active sandboxes</p>" : "") +
     '<div class="form-grid">' +
@@ -203,7 +203,7 @@ export const actions = {
   "sb-target-save": (el) => { const f = readForm(document.querySelector("[data-form]")); finish(changeSandboxTarget(el.dataset.id, f["t-ver"], f["t-reason"]), "Target version changed"); },
   "sb-note": (el) => dialog({ title: "Record issue or fix", description: "Add what you found or changed. It goes into the sandbox change history.", body: textarea("Issue or fix", "n-text", "", { rows: 4 }) + formError(), footer: button("Cancel", "close") + button("Record", "sb-note-save", { id: el.dataset.id, cls: "btn-primary", submit: true }) }),
   "sb-note-save": (el) => finish(recordSandboxNote(el.dataset.id, readForm(document.querySelector("[data-form]"))["n-text"]), "Recorded in change history"),
-  "sb-test": (el) => dialog({ title: "Record test result", description: "Record a result from CI or manual testing. The preview doesn't run tests.", body: input("Test or suite name", "x-name", "Playwright e2e suite") + select("Result", "x-result", "Passed", ["Passed", "Failed"]) + input("Link to CI run (optional)", "x-link", "", { hint: "Full https:// link." }) + textarea("Notes", "x-notes", "", { rows: 2 }) + formError(),
+  "sb-test": (el) => dialog({ title: "Record test result", description: "Record a result from CI or manual testing.", body: input("Test or suite name", "x-name", "Playwright e2e suite") + select("Result", "x-result", "Passed", ["Passed", "Failed"]) + input("Link to CI run (optional)", "x-link", "", { hint: "Full https:// link." }) + textarea("Notes", "x-notes", "", { rows: 2 }) + formError(),
     footer: button("Cancel", "close") + button("Record result", "sb-test-save", { id: el.dataset.id, cls: "btn-primary", submit: true, primary: true }) }),
   "sb-test-save": (el) => { const f = readForm(document.querySelector("[data-form]")); finish(recordSandboxTest(el.dataset.id, { name: f["x-name"], result: f["x-result"], link: f["x-link"], notes: f["x-notes"] }), "Test result recorded"); },
   "sb-submit": (el) => { const res = submitSandboxReview(el.dataset.id); if (!res.ok) { dialog({ title: "Not ready for review", description: "", body: alertBox("warning", h(res.error), "alert") + '<p><a href="#/dev/sandboxes/' + h(el.dataset.id) + '?tab=readiness">See release readiness</a></p>' }); return; } rerender(); notify("Submitted for review"); },
@@ -213,7 +213,7 @@ export const actions = {
       footer: button("Cancel", "close") + button(approve ? "Approve review" : "Request changes", "sb-review-save", { id: el.dataset.id, arg: el.dataset.arg, cls: "btn-primary", submit: true }) });
   },
   "sb-review-save": (el) => finish(decideSandboxReview(el.dataset.id, el.dataset.arg === "approve", readForm(document.querySelector("[data-form]"))["rv-reason"]), el.dataset.arg === "approve" ? "Review approved" : "Changes requested"),
-  "sb-promote": (el) => dialog({ title: "Request production promotion?", description: "Creates a request for the platform owner's approval in Requests. Production deployment stays unavailable in the preview.", body: textarea("Reason", "pr-reason", "", { rows: 2 }) + formError(), footer: button("Cancel", "close") + button("Request promotion", "sb-promote-save", { id: el.dataset.id, cls: "btn-primary", submit: true }) }),
+  "sb-promote": (el) => dialog({ title: "Request production promotion?", description: "Creates a request for the platform owner's approval in Requests.", body: textarea("Reason", "pr-reason", "", { rows: 2 }) + formError(), footer: button("Cancel", "close") + button("Request promotion", "sb-promote-save", { id: el.dataset.id, cls: "btn-primary", submit: true }) }),
   "sb-promote-save": (el) => finish(requestPromotion(el.dataset.id, readForm(document.querySelector("[data-form]"))["pr-reason"]), "Promotion requested. Approve it in Requests."),
   "sb-retire": (el) => {
     const s = getData().sandboxes.find((x) => x.id === el.dataset.id);

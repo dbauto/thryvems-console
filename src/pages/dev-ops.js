@@ -25,7 +25,7 @@ export function renderRequests() {
   const d = getData();
   const st = getFilter("req-status", "Pending"), kind = getFilter("req-kind");
   const rows = d.requests.filter((r) => (!st || r.status === st) && (!kind || r.kind === kind));
-  return pageHeader({ title: "Requests", description: "Decisions only the platform owner can make: partner requests for seats, new clients and customization, and production promotions from approved sandboxes. Approving applies the change in the preview; it never deploys or invoices." }) +
+  return pageHeader({ title: "Requests", description: "Decisions only the platform owner can make: partner requests for seats, new clients and customization, and production promotions from approved sandboxes. Approving never deploys or invoices on its own." }) +
     dataTable({ id: "requests", caption: "Requests", rows, minWidth: 1150,
       toolbar: '<div class="filters">' + selectFilter("req-status", "Status", [{ value: "", label: "All" }, ...["Pending", "Approved", "Declined", "Withdrawn"].map((s) => ({ value: s, label: s }))], "Pending") +
         selectFilter("req-kind", "Type", [{ value: "", label: "All types" }, ...["Seat change", "New client account", "Enterprise customization", "Release promotion"].map((s) => ({ value: s, label: s }))]) + "</div>",
@@ -175,7 +175,7 @@ export function renderTeam(r) {
       { key: "l", label: "Last active", sort: (p) => p.last || "", cell: (p) => formatDateTime(p.last) },
       { key: "x", label: "Actions", srOnly: true, cell: (p) => (p.role === "Platform owner" ? '<span class="tiny muted">Owner</span>' : button("Change role", "tm-role", { id: p.id, cls: "btn-small" }) + button("Remove access", "tm-remove", { id: p.id, cls: "btn-small btn-danger" })) },
     ] }) + card({ title: "Partner assignments", note: "Change a client's partner from its organisation page. Partners see only their assigned clients.", body: PARTNERS.map((p) => row(h(p.label) + " · " + h(p.person), d.clients.filter((c) => c.partnerId === p.id && c.accountStatus !== "Archived").length + " assigned clients · seat authority up to " + p.seatAuthority + " seats per request", badge("Business partner", "progress"))).join("") });
-  else if (tab === "permissions") body = alertBox("info", "In production these are enforced by the server behind Cloudflare Access and WorkOS passkeys (plan v3 D9). The preview role switch is not access control.") +
+  else if (tab === "permissions") body = alertBox("info", "In production these are enforced by the server behind Cloudflare Access and WorkOS passkeys (plan v3 D9).") +
     '<div class="card"><div class="table-scroll"><table class="data-table" style="min-width:900px"><caption class="sr-only">Permission matrix</caption><thead><tr><th scope="col">Capability</th><th scope="col">Platform owner (Developer)</th><th scope="col">Business partner</th><th scope="col">Client administrator</th></tr></thead><tbody>' +
     PERMISSIONS.map((p) => '<tr><th scope="row">' + h(p[0]) + "</th>" + p.slice(1).map((x) => "<td>" + (x === "No access" || x === "Never" ? badge(x, "draft") : h(x)) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div></div>";
   else if (tab === "history") { const cid = getFilter("hist-client"); body = historyTable("audit", d.audit.filter((a) => !cid || a.clientId === cid), { toolbar: '<div class="filters">' + clientFilter("hist-client", d.clients) + "</div>" }); }
@@ -194,8 +194,7 @@ function settings() {
       ["Console access", "Cloudflare Access in front of the platform hostname + WorkOS sign-in with passkeys (D9)"], ["Business partners", "Platform principals with their own role and Access policy; MFA required"], ["Client users", "Microsoft Entra OIDC or WorkOS AuthKit in their own workspace (D7, D8); never this console"],
       ["Sessions", "Idle 15/30/60 minutes, absolute 8 or 12 hours, step-up for sensitive actions (D15)"], ["MFA", "Always for platform admins and privileged client roles (D16)"], ["Support access", "Client-granted, 1/2/4 hours, read-only (D17)"],
     ]) + "</div>" }) +
-    card({ title: "Provider integrations", body: d.integrations.map((i) => row(h(i.name), h(i.purpose), badge(i.status, "overdue"))).join("") }) +
-    card({ title: "Preview data", note: "Only affects this browser.", body: '<div class="card-body">' + button("Reset preview data", "reset-preview", { cls: "btn-danger" }) + "</div>" });
+    card({ title: "Provider integrations", body: d.integrations.map((i) => row(h(i.name), h(i.purpose), badge(i.status, "overdue"))).join("") });
 }
 
 /* ----------------------------------------------------------------- actions */
@@ -208,7 +207,7 @@ export const actions = {
   "req-decide": (el) => {
     const r = getData().requests.find((x) => x.id === el.dataset.id);
     const approve = el.dataset.arg === "approve";
-    const what = { "Seat change": "updates the subscription with the requested effective date", "New client account": "creates a trial account (not provisioned) assigned to the partner", "Enterprise customization": "creates a project in Scoping", "Release promotion": "records your approval. Production deployment is unavailable in the preview and won't run" }[r.kind] || "";
+    const what = { "Seat change": "updates the subscription with the requested effective date", "New client account": "creates a trial account (not provisioned) assigned to the partner", "Enterprise customization": "creates a project in Scoping", "Release promotion": "records your approval. production deployment is a separate step" }[r.kind] || "";
     dialog({ title: (approve ? "Approve" : "Decline") + " request?", description: h(r.title) + ". " + (approve ? "Approving " + h(what) + "." : "The requester sees your reason."), body: '<p class="small">' + h(describeRequest(r)) + "</p>" + textarea("Reason", "rq-reason", "", { rows: 2 }) + formError(),
       footer: button("Cancel", "close") + button(approve ? "Approve request" : "Decline request", "req-decide-save", { id: r.id, arg: el.dataset.arg, cls: approve ? "btn-primary" : "btn-danger", submit: true }) });
   },

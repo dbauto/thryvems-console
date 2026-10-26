@@ -175,3 +175,19 @@ main h1[tabindex="-1"]:focus{outline:none}
 :root.dark .sidebar .product-symbol{content:url(./assets/thryvems-mark-dark.png)}
 .alert-success{background:var(--done-tint)}
 .pl-total td,.pl-total th{font-weight:700;border-top:2px solid var(--border)}
+
+/* Sidebar sub-pages, table footer and mobile drawer (follow-up to PR #6) */
+.nav-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 30px;border-left:1px solid var(--border);padding-left:8px}
+.sidebar .nav .nav-sub a{height:auto;min-height:30px;padding:5px 10px;font-size:13px;gap:0}
+.sidebar .nav .nav-sub a.active{color:var(--primary);background:var(--accent);font-weight:600}
+.sidebar .nav a.active{color:var(--primary);background:var(--accent)}
+.data-card .table-scroll{max-height:560px;overflow:auto}
+.data-card .data-table thead th{position:sticky;top:0;background:var(--background);z-index:1}
+.table-footer{flex-wrap:wrap}.pager-left{display:inline-flex;align-items:center;gap:8px}.pager-left select{min-height:30px;border:1px solid var(--input);background:var(--card);color:var(--foreground);border-radius:6px}
+.drawer-backdrop{display:none}
+@media(max-width:767px){
+  .sidebar.drawer-open{display:flex;position:fixed;left:0;top:0;bottom:0;z-index:30;width:280px;box-shadow:0 20px 60px #00000030}
+  .sidebar.drawer-open.collapsed{width:280px}
+  .drawer-backdrop.open{display:block;position:fixed;inset:0;background:#18202b66;z-index:29}
+  .topbar-left .mobile-toggle{display:inline-flex}
+}

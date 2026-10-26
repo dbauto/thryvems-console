@@ -9,7 +9,7 @@ export const ICON_NAMES = Object.freeze([
   "circle-check", "circle-dot", "flask-conical", "triangle-alert", "user-round-plus",
   "arrow-down-up", "chart-no-axes-combined", "users-round", "percent",
   "receipt-text", "circle-dashed", "circle-x", "info", "chevron-left",
-  "chevron-right", "panel-left-close", "panel-left-open", "sun", "moon",
+  "chevron-right", "panel-left-close", "panel-left-open", "menu", "sun", "moon",
   "activity", "shield-check", "calendar-days", "clipboard-list", "badge-check",
 ]);
 const ALLOWED = new Set(ICON_NAMES);

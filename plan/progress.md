@@ -34,3 +34,11 @@
 - ✅ Light ThryveMS sidebar with the official logo PNGs.
 - ✅ Typecheck, unit (10), build and e2e (18 passed) green in CI at code SHA f04f3fdc. Owner approved the merge on 26 Oct 2026.
 - ✅ No production deployment, credentials or real data. Backend synchronization remains **Pending**.
+
+## 26 Oct 2026 — Navigation, mobile drawer and table footer (PR #7)
+- ✅ Sidebar sub-pages under the active menu group; Business settings is a top-level partner menu item.
+- ✅ Mobile menu opens as a drawer (closes on navigation, backdrop or Escape).
+- ✅ Tables: rows per page, Previous / Page x of y / Next, internal scroll with sticky headers.
+- ✅ README and console design doc updated to the shared-profit wording.
+- ✅ Typecheck, unit (10), build and e2e (21 passed) green in CI at code SHA e7885161. Owner approved the merge on 26 Oct 2026.
+- ✅ No production deployment. Backend synchronization remains **Pending**.

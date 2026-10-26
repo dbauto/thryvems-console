@@ -3,7 +3,7 @@
  * Sign-in is UI only (no credential check) until the backend auth lands (plan v3 D9: Cloudflare Access + WorkOS
  * passkeys, server-side authorization). It selects the signed-in account's role; it is not a security boundary.
  */
-import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting, getData } from "./store.js";
+import { getUi, saveUi, isDeveloper, partnerOf, businessPartnerId, isInspecting, getData, partnerCan } from "./store.js";
 import { PARTNERS } from "./seed.js";
 import { h, closeOverlay, getTableState, loadingState, errorState, markDirty, toast } from "./ui.js";
 import { icon as lucideIcon } from "./icons.js";
@@ -35,7 +35,7 @@ export const SUBNAV = {
     deployments: T("#/dev/deployments", [["production", "Production"], ["sandboxes", "Sandboxes"], ["monitoring", "Monitoring"]]),
     releases: T("#/dev/releases", [["registry", "Release registry"], ["history", "Per-client history"]]),
     finance: T("#/dev/finance", [["overview", "Overview"], ["revenue", "Revenue"], ["costs", "Costs"], ["profit", "Shared profit reporting"], ["allocations", "Allocations"], ["pricing", "Pricing"], ["subscriptions", "Subscriptions"], ["enterprise", "Enterprise"], ["distributions", "Distributions"]]),
-    team: T("#/dev/team", [["team", "Team"], ["permissions", "Permissions"], ["history", "Change history"], ["settings", "Settings"]]),
+    team: T("#/dev/team", [["team", "Team"], ["permissions", "Permissions"], ["partner-access", "Partner access"], ["history", "Change history"], ["settings", "Settings"]]),
   },
   biz: {
     clients: T("#/biz/clients", [["clients", "Clients"], ["subscriptions", "Subscriptions and seats"], ["enterprise", "Enterprise projects"]]),
@@ -103,13 +103,16 @@ export function render() {
     else { [active, content] = (ws === "dev" ? devPage : bizPage)(r); }
   }
   if (!content) content = shared.notFound();
-  const nav = ws === "biz" ? NAV_BIZ : NAV_DEV;
+  const bizArea = { clients: ["clients", "clients.subscriptions", "clients.enterprise"], finance: ["finance.overview", "finance.revenue-expenses", "finance.profit", "finance.invoices", "finance.distributions", "finance.reports"], requests: ["requests"], settings: ["settings"] };
+  const subArea = (group, id) => (group === "clients" ? (id === "clients" ? "clients" : "clients." + id) : "finance." + id);
+  const nav = ws === "biz" ? NAV_BIZ.filter(([id]) => !bizArea[id] || bizArea[id].some(partnerCan)) : NAV_DEV;
   const showNav = allowed;
   const title = ws === "biz" ? "ThryveMS Business" : "ThryveMS Platform";
   const sub = ws === "biz" ? (partnerOf(businessPartnerId())?.label || "") + " · Business management" : "Developer Console";
   const curTab = r.query.get("tab");
   const subs = (id) => {
-    const list = SUBNAV[ws]?.[id];
+    const list = (SUBNAV[ws]?.[id] || []).filter(([, , tid]) => ws !== "biz" || partnerCan(subArea(id, tid)));
+    if (!list.length) return "";
     if (!list || active !== id || sidebarCollapsed) return "";
     const cur = curTab || list[0][2];
     return '<div class="nav-sub" role="group" aria-label="' + h(id) + ' pages">' + list.map(([label, href, tid]) => '<a href="' + href + '" class="sub' + (cur === tid && r.parts.length < 2 ? " active" : "") + '"' + (cur === tid && r.parts.length < 2 ? ' aria-current="page"' : "") + ">" + h(label) + "</a>").join("") + "</div>";
@@ -261,6 +264,12 @@ document.addEventListener("change", (e) => {
   const key = t.dataset.change;
   if (key === "inspect-partner") { ui.inspect = t.value; saveUi(); render(); return; }
   if (key && registry.changes[key]) registry.changes[key](t, e);
+});
+document.addEventListener("input", (e) => {
+  const q = e.target.closest?.("[data-pa-search]");
+  if (!q) return;
+  const v = q.value.trim().toLowerCase();
+  document.querySelectorAll("[data-pa-name]").forEach((l) => { l.hidden = !!v && !l.dataset.paName.includes(v); });
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && document.getElementById("dialog-root").innerHTML) { closeOverlay(); return; }

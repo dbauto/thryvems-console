@@ -214,3 +214,8 @@ main h1[tabindex="-1"]:focus{outline:none}
 .pc-rev{fill:var(--primary)}.pc-exp{fill:#9aa3b2}.pc-line{fill:none;stroke:var(--done);stroke-width:2.5;stroke-linejoin:round}.pc-dot{fill:var(--card);stroke:var(--done);stroke-width:2.5}
 .pc-grid{stroke:var(--rule-soft)}.pc-grid.zero{stroke:var(--border)}.pc-axis{fill:var(--muted-foreground);font-size:11px}
 :root.dark .pc-rev,:root.dark .sw.rev{fill:#7f8ff0;background:#7f8ff0}
+
+/* Partner access */
+.pa-body{display:flex;flex-direction:column;gap:12px}.pa-group{border:0;padding:0;margin:0 0 6px;display:flex;flex-direction:column;gap:8px}.pa-group legend{font-weight:600;font-size:13px;margin-bottom:6px}
+.pa-list{max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.pa-actions{display:flex;gap:8px}.segment-radio{display:flex;flex-direction:column;gap:8px}

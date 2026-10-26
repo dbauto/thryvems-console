@@ -54,3 +54,8 @@
 
 ## 26 Oct 2026 — Profit by month chart (PR #10)
 - ✅ Revenue and expenses as paired bars per month with net profit as a line, in Finance › Overview (both workspaces) and Shared profit reporting › Trends. Same sharedProfit() figures; table kept below the chart for exact values.
+
+## 26 Oct 2026 — Partner access controls (PR #11)
+- ✅ Platform team › Partner access: per partner, share all assigned clients or only selected ones, and choose which areas (client list, subscriptions, enterprise, billing, each finance section, requests, business settings) they see.
+- ✅ Hidden clients and areas don't exist in the partner workspace: no menu item, sub-page, tab or figure; direct links show the ordinary "Page not found"; no wording reveals limited access. Company-wide profit totals unchanged; unshared clients appear as amounts only. Access can only be narrowed within the partner's own assigned clients (client isolation unchanged).
+- ✅ Every change needs a reason and is recorded in Change history. Front-end only; server-side enforcement belongs to the backend (Pending).

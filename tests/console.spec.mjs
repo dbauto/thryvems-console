@@ -282,3 +282,27 @@ test("Finance overview shows revenue and expense bars with a net profit line in 
     await expect(chart.locator("circle.pc-dot")).toHaveCount(4);
   }
 });
+
+test("Developer controls what a partner sees; hidden areas and clients simply don't exist for the partner", async ({ page }) => {
+  await page.goto("/#/dev/team?tab=partner-access&partner=partner-a");
+  await page.getByLabel("Only the clients I select").check();
+  await page.getByRole("button", { name: "Clear" }).click();
+  await page.locator("[name=pa-client]").first().check();
+  const kept = (await page.locator("[name=pa-client]").first().locator("xpath=..").innerText()).split("\n")[0].replace(/\s+(Active|Trial|Past due|Cancelled|Not started).*$/, "").trim();
+  await page.locator("label", { hasText: "Invoices" }).locator("input").uncheck();
+  await page.locator("label", { hasText: "Business settings" }).locator("input").uncheck();
+  await page.fill("#pa-reason", "Limit Partner A to one pilot client");
+  await page.getByRole("button", { name: "Save access" }).click();
+  await expect(page.getByTestId("pa-shared").locator("strong")).toHaveText("1");
+  await asRole(page, "partner-a");
+  await page.goto("/#/biz/clients");
+  await expect(page.getByTestId("bz-clients-count")).toContainText("of 1 record");
+  await expect(page.locator(".sidebar .nav a[aria-label='Business settings']")).toHaveCount(0);
+  await page.goto("/#/biz/finance");
+  await expect(page.locator("main .view-chips a", { hasText: "Invoices" })).toHaveCount(0);
+  await page.goto("/#/biz/finance?tab=invoices");
+  await expect(page.locator("main h1").first()).toHaveText("Page not found");
+  const text = await page.locator("main").innerText();
+  expect(text).not.toMatch(/restricted|limited access|hidden by|not shared with you/i);
+  expect(kept.length).toBeGreaterThan(0);
+});

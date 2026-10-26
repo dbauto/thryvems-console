@@ -1,10 +1,12 @@
 /**
  * Business Partner workspace. Every list, count, search, figure and detail uses scopeClients("biz"):
- * the partner's assigned clients only. Finance uses commercialSummary (allocated expenses), which has
- * no actual-cost fields. Developers can open this workspace read-only to inspect a partner's view.
+ * the partner's assigned clients only. Company-wide finance uses the same sharedProfit() as the Developer
+ * Console, so totals are identical; records of other partners' clients keep their amounts and hide their
+ * details. Developers can open this workspace read-only to inspect a partner's view.
  */
 import { getData, getUi, scopeClients, businessPartnerId, isInspecting, partnerOf, deploymentFor, submitRequest, withdrawRequest, updatePartnerSettings, partnerSettings } from "../store.js";
-import { commercialSummary, distribution, partnerContribution, invoiceTotals, currentPricing, chargeBreakdown } from "../finance.js";
+import { sharedProfit, expenseCategories, distribution, invoiceTotals, currentPricing, chargeBreakdown } from "../finance.js";
+import { profitReport, profitFigures, sameBanner, plRows, profitRecords, profitCsv } from "./profit.js";
 import { MODULES } from "../seed.js";
 import { h, pageHeader, badge, keyFacts, dataTable, sheet, dialog, button, input, select, textarea, formError, readForm, showFormError, closeOverlay, alertBox, card, row, linkTo, moneyCell, emptyLine, figure, figureGrid, scrollList } from "../ui.js";
 import { money, pct, formatDate, formatDateTime, MONTHS, monthLabel, monthShort, CURRENT_MONTH, TODAY, sum } from "../util.js";
@@ -32,14 +34,14 @@ export function renderOverview() {
   const clients = all.filter((c) => !cid || c.id === cid);
   const ids = clients.map((c) => c.id);
   const p = currentPeriod();
-  const com = commercialSummary(d, p.months, clients);
+  const sp = sharedProfit(d, p.months);
+  const mine = sp.rows.filter((x) => all.some((c) => c.id === x.client.id));
   const invs = d.invoices.filter((i) => ids.includes(i.clientId)).map((i) => invoiceTotals(d, i)).filter((t) => t.outstanding > 0);
   const changes = clients.flatMap((c) => c.subscription.history.filter((x) => p.months.includes(String(x.effective).slice(0, 7))));
   const newSubs = clients.filter((c) => p.months.includes(c.subscription.startDate.slice(0, 7)));
-  const contribution = partnerContribution(d, p.months, businessPartnerId());
-  const published = p.months.map((m) => distribution(d, m)).filter((x) => x.status !== "Draft");
+  const dist = p.months.map((m) => distribution(d, m));
   const pl = partnerOf(businessPartnerId());
-  return pageHeader({ title: "Business overview", description: "Commercial performance for the clients assigned to " + h(pl.label) + ". Figures use allocated service expenses, not the platform's actual infrastructure costs." }) +
+  return pageHeader({ title: "Business overview", description: "Your assigned clients and the company's shared business profit. The profit figures are the same ones the Developer sees, from the same records." }) +
     '<div class="filters" role="group" aria-label="Overview filters">' + periodFilter() + clientFilter("bz-client", all) + "</div>" +
     '<h2 class="section-title">Clients</h2>' +
     figureGrid([
@@ -48,21 +50,16 @@ export function renderOverview() {
       figure({ label: "Trial accounts", value: clients.filter((c) => c.subscription.status === "Trial").length, icon: "○", href: "#/biz/clients?tab=subscriptions" }),
       figure({ label: "New subscriptions", value: newSubs.length, note: periodCaption(), icon: "+", href: "#/biz/clients" }),
     ], "Client figures") +
-    '<h2 class="section-title">Commercial results <span class="muted small">— ' + h(periodCaption()) + "</span></h2>" +
+    '<h2 class="section-title">Shared business profit <span class="muted small">— ' + h(periodCaption()) + "</span></h2>" + sameBanner(sp, false) +
+    profitFigures(sp, "#/biz/finance?tab=profit") +
     figureGrid([
-      figure({ label: "Revenue (recognised)", value: money(com.revenue), note: "Subscriptions " + money(com.subscription) + " · enterprise " + money(com.enterprise), icon: "₱", href: "#/biz/finance", testid: "bz-revenue" }),
-      figure({ label: "Business expenses (allocated)", value: money(com.allocated), note: "Allocated service expenses for your clients", icon: "▤", href: "#/biz/finance", testid: "bz-expenses" }),
-      figure({ label: "Reported profit", value: money(com.reportedProfit), badge: "Margin " + pct(com.margin), tone: com.reportedProfit >= 0 ? "done" : "overdue", note: "Revenue − allocated expenses", icon: "✓", href: "#/biz/finance", testid: "bz-profit" }),
-      figure({ label: "Outstanding invoices", value: invs.length, note: money(sum(invs, "outstanding")) + (invs.some((t) => t.status === "Overdue") ? " · includes overdue" : ""), tone: "overdue", badge: invs.some((t) => t.status === "Overdue") ? "Overdue" : null, icon: "!", href: "#/biz/finance?tab=invoices" }),
-    ], "Commercial figures") +
-    figureGrid([
-      figure({ label: "Subscription changes", value: changes.length, note: periodCaption(), icon: "⇅", href: "#/biz/clients?tab=subscriptions" }),
-      figure({ label: "Enterprise project revenue", value: money(com.enterprise), icon: "◆", href: "#/biz/clients?tab=enterprise" }),
-      figure({ label: "Contribution from your clients", value: cid ? "No data" : money(contribution.contribution), note: "Toward the distribution pool; not your payout", icon: "◇", href: "#/biz/finance?tab=distributions" }),
-      figure({ label: "Partners combined · 70% (published)", value: published.length ? money(sum(published, "partners")) : "No data", note: published.length ? published.length + " published month(s) in the period" : "No statement published for this period yet", icon: "♟", href: "#/biz/finance?tab=distributions", testid: "bz-partner-pool" }),
-    ], "Distribution figures") +
+      figure({ label: "Outstanding invoices", value: invs.length, note: money(sum(invs, "outstanding")) + (invs.some((t) => t.status === "Overdue") ? " · includes overdue" : ""), tone: "overdue", badge: invs.some((t) => t.status === "Overdue") ? "Overdue" : null, icon: "receipt-text", href: "#/biz/finance?tab=invoices" }),
+      figure({ label: "Subscription changes", value: changes.length, note: periodCaption(), icon: "arrow-down-up", href: "#/biz/clients?tab=subscriptions" }),
+      figure({ label: "Revenue from your clients", value: cid ? money(mine.filter((x) => x.client.id === cid).reduce((a, x) => a + x.revenue, 0)) : money(mine.reduce((a, x) => a + x.revenue, 0)), note: "Enterprise " + money(mine.reduce((a, x) => a + x.enterprise, 0)), icon: "chart-no-axes-combined", href: "#/biz/finance?tab=profit&view=client" }),
+      figure({ label: "Business Partners combined · 70%", value: money(sum(dist, "partners")), note: "Paid " + money(sum(dist, "paidPartners")) + " · individual shares not defined", icon: "users-round", href: "#/biz/finance?tab=distributions", testid: "bz-partner-pool" }),
+    ], "Business figures") +
     card({ title: "Recent business activity", note: "Commercial changes on your assigned clients.", body: scrollList(partnerActivity(ids).slice(0, 15).map((a) => row(h(a.action), formatDateTime(a.at) + " · " + h(getData().clients.find((c) => c.id === a.clientId)?.name || "") + " · " + h(a.after || ""))), { title: "No activity yet", body: "Subscription changes, payments and requests appear here." }) }) +
-    '<p class="footer-caption">Partner view: based on allocated service expenses, not actual costs. Contribution isn\'t a payout or profit share. Individual partner shares within the combined 70% are not defined.</p>';
+    '<p class="footer-caption">Profit figures are company-wide and identical in the Developer Console. Individual partner shares within the combined 70% are not defined.</p>';
 }
 
 /* ----------------------------------------------------------------- clients */
@@ -167,81 +164,67 @@ export function renderFinance(r) {
   const tab = r.query.get("tab") || "overview";
   const d = getData();
   const all = scopeClients("biz");
-  const t = [{ id: "overview", label: "Overview" }, { id: "invoices", label: "Invoices" }, { id: "distributions", label: "Distributions" }, { id: "reports", label: "Reports" }];
-  const head = pageHeader({ title: "Finance", description: "Business revenue and allocated expenses for your assigned clients. The platform's actual infrastructure costs are never shown here." }) + tabs(t, tab, "#/biz/finance", "Finance sections");
+  const ids = all.map((c) => c.id);
+  const t = [{ id: "overview", label: "Overview" }, { id: "revenue-expenses", label: "Revenue and expenses" }, { id: "profit", label: "Shared profit reporting" }, { id: "invoices", label: "Invoices" }, { id: "distributions", label: "Distributions" }, { id: "reports", label: "Reports" }];
+  const head = pageHeader({ title: "Finance", description: "The company's revenue, actual expenses and shared net profit, the same figures the Developer sees. Details of other partners' clients stay hidden." }) + tabs(t, tab, "#/biz/finance", "Finance sections");
   const p = currentPeriod();
+  const sp = sharedProfit(d, p.months);
   if (tab === "overview") {
-    const cid = getFilter("bzf-client");
-    const clients = all.filter((c) => !cid || c.id === cid);
-    const com = commercialSummary(d, p.months, clients);
-    return head + '<div class="filters">' + periodFilter() + clientFilter("bzf-client", all) + "</div>" +
-      figureGrid([
-        figure({ label: "Business revenue", value: money(com.revenue), icon: "₱", testid: "bzf-revenue" }),
-        figure({ label: "Total reported business expenses", value: money(com.allocated), note: "Allocated service expenses", icon: "▤", testid: "bzf-expenses" }),
-        figure({ label: "Reported profit", value: money(com.reportedProfit), icon: "✓", testid: "bzf-profit" }),
-        figure({ label: "Profit margin", value: pct(com.margin), icon: "%" }),
-      ], "Finance figures") +
-      card({ title: "How these figures are calculated", note: h(periodCaption()), body:
-        row("<strong>Revenue</strong>", "Invoice net amounts for each service month (excluding VAT), minus discounts and credit notes.") +
-        row("<strong>Allocated service expenses</strong>", "Set by the platform owner per client for commercial reporting: a fixed amount plus an amount per active user. Not the actual provider bill.") +
-        row("<strong>Reported profit</strong>", "Revenue − allocated service expenses. This is a different figure from the platform's actual operating profit.") }) +
-      dataTable({ id: "bzf-clients", caption: "Revenue and allocated expenses per client", rows: com.rows, minWidth: 900, search: (x) => x.name, searchLabel: "Search clients",
-        empty: { title: "No financial data", body: "Assigned client finances appear here." },
-        columns: [
-          { key: "n", label: "Client", sort: (x) => x.name, cell: (x) => linkTo(x.name, "#/biz/clients/" + x.clientId) },
-          { key: "r", label: "Revenue per client", sort: (x) => x.revenue, cell: (x) => (x.allocated == null && !x.revenue ? '<span class="muted">No data</span>' : moneyCell(x.revenue)) },
-          { key: "a", label: "Allocated expenses per client", sort: (x) => x.allocated ?? -1, cell: (x) => moneyCell(x.allocated, { missing: "Not live" }) + (x.allocationLines.length === 1 ? '<div class="secondary">' + h(x.allocationLines[0].formula) + "</div>" : "") },
-          { key: "p", label: "Reported profit", sort: (x) => x.reportedProfit, cell: (x) => (x.allocated == null && !x.revenue ? '<span class="muted">No data</span>' : moneyCell(x.reportedProfit)) },
-          { key: "m", label: "Margin", sort: (x) => x.margin ?? -1, cell: (x) => pct(x.margin) },
-        ] }) +
-      '<p class="footer-caption">Partner view: based on allocated service expenses, not actual costs. Sample PHP figures, not issued statements.</p>';
+    const dist = p.months.map((m) => distribution(d, m));
+    const trend = MONTHS.map((m) => ({ m, s: sharedProfit(d, [m]) }));
+    return head + '<div class="filters">' + periodFilter() + "</div>" + sameBanner(sp, false) + profitFigures(sp, "#/biz/finance?tab=profit") +
+      '<section class="split">' + card({ title: "How net profit is worked out", note: h(periodCaption()), body: plRows(sp) }) +
+      card({ title: "Distribution to partners", note: "From the same net profit. Losses are not distributed.", body: '<div class="card-body">' + keyFacts([["Shared net profit", h(money(sum(dist, "net")))], ["Business Partners combined · 70%", h(money(sum(dist, "partners")))], ["Paid", h(money(sum(dist, "paidPartners")))], ["Pending", h(money(sum(dist, "pendingPartners")))], ["Individual partner shares", '<span class="muted">Not defined yet</span>']]) + "</div>" }) + "</section>" +
+      card({ title: "Month by month", body: '<div class="table-scroll"><table class="data-table" style="min-width:640px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Recognised expenses</th><th scope="col">Net profit</th><th scope="col">Margin</th></tr></thead><tbody>' + trend.map((x) => "<tr><td>" + h(monthLabel(x.m)) + "</td><td>" + moneyCell(x.s.revenue) + "</td><td>" + moneyCell(x.s.expenses) + "</td><td>" + moneyCell(x.s.net) + "</td><td>" + pct(x.s.margin) + "</td></tr>").join("") + "</tbody></table></div>" });
   }
+  if (tab === "revenue-expenses") {
+    const cats = expenseCategories(d, p.months);
+    const recs = profitRecords(d, p.months).map((x) => (x.clientId && !ids.includes(x.clientId) ? { ...x, hidden: true } : x));
+    const byCat = (re) => recs.filter((x) => re.test(x.category));
+    return head + '<div class="filters">' + periodFilter() + "</div>" +
+      figureGrid([
+        figure({ label: "Recognised revenue", value: money(sp.revenue), note: byCat(/revenue|Revenue adjustment/).length + " records", icon: "wallet" }),
+        figure({ label: "Actual infrastructure", value: money(sp.direct + sp.shared + sp.unallocated), badge: sp.incomplete ? "Incomplete" : "Complete", tone: sp.incomplete ? "soon" : "done", icon: "server" }),
+        figure({ label: "Operating expenses", value: money(sp.opex), icon: "building-2" }),
+        figure({ label: "Shared business expenses", value: money(sp.sharedBusiness), icon: "users-round" }),
+      ], "Revenue and expense figures") +
+      card({ title: "Expenses by category", note: "Every category behind recognised expenses, for all clients.", body: cats.map((x) => row(h(x.name), h(x.group) + " · " + Math.round(x.share * 100) + "%", "<strong>" + h(money(x.amount)) + "</strong>")).join("") || emptyLine("No expenses", "") }) +
+      card({ title: "Records behind the totals", note: "Open Shared profit reporting to search every record. Other partners' clients show the amount only.", action: '<a class="table-link" href="#/biz/finance?tab=profit">Open the records</a>', body: '<div class="card-body">' + keyFacts([["Records in the period", h(recs.length)], ["Hidden details (other partners' clients)", h(recs.filter((x) => x.hidden).length)]]) + "</div>" });
+  }
+  if (tab === "profit") return head + profitReport("biz", r);
   if (tab === "invoices") {
-    const ids = all.map((c) => c.id);
     const st = getFilter("bz-inv-status");
     const invs = d.invoices.filter((i) => ids.includes(i.clientId) && (!st || invoiceTotals(d, i).status === st));
     const totals = invs.map((i) => invoiceTotals(d, i));
     return head + figureGrid([
-      figure({ label: "Invoices", value: invs.length, icon: "▤" }), figure({ label: "Invoiced (gross)", value: money(sum(totals, "gross")), icon: "₱" }),
-      figure({ label: "Paid", value: money(sum(totals, "paid")), icon: "✓" }), figure({ label: "Outstanding", value: money(sum(totals, "outstanding")), tone: "overdue", badge: totals.some((t) => t.status === "Overdue") ? "Overdue" : null, icon: "!" }),
+      figure({ label: "Invoices", value: invs.length, icon: "receipt-text" }), figure({ label: "Invoiced (gross)", value: money(sum(totals, "gross")), icon: "wallet" }),
+      figure({ label: "Paid", value: money(sum(totals, "paid")), icon: "circle-check" }), figure({ label: "Outstanding", value: money(sum(totals, "outstanding")), tone: "overdue", badge: totals.some((x) => x.status === "Overdue") ? "Overdue" : null, icon: "triangle-alert" }),
     ], "Invoice figures") + invoiceTable("bz-invoices", invs, { toolbar: '<div class="filters">' + selectFilter("bz-inv-status", "Payment status", [{ value: "", label: "All statuses" }, ...["Issued", "Partly paid", "Paid", "Overdue"].map((x) => ({ value: x, label: x }))]) + "</div>" });
   }
   if (tab === "distributions") {
-    const pid = businessPartnerId();
-    const statements = MONTHS.slice().reverse().map((m) => ({ m, x: distribution(d, m), c: partnerContribution(d, [m], pid) }));
-    const visible = statements.filter((s) => s.x.status !== "Draft");
-    const hidden = statements.filter((s) => s.x.status === "Draft");
-    return head + alertBox("info", "Business partners collectively receive <strong>70%</strong> of distributable profit; the Developer receives 30%. Percentages apply to distributable profit, never to gross revenue. <strong>Individual partner shares are not defined yet</strong>, so no personal amount is shown. Statements appear here once the platform owner publishes them.") +
-      dataTable({ id: "bz-dist", caption: "Published distribution statements", rows: visible, minWidth: 1200,
+    const statements = MONTHS.slice().reverse().map((m) => distribution(d, m));
+    const visible = statements.filter((x) => x.status !== "Draft");
+    const hidden = statements.filter((x) => x.status === "Draft");
+    return head + alertBox("info", "Business Partners combined receive <strong>70%</strong> of the shared net profit; the Developer receives 30%. It is the same net profit you see in Shared profit reporting. Losses are not distributed. <strong>Individual partner shares are not defined yet</strong>, so no personal amount is shown. Statements appear here once the platform owner publishes them.") +
+      dataTable({ id: "bz-dist", caption: "Published distribution statements", rows: visible, minWidth: 1100,
         empty: { title: "No published statements", body: "Statements appear after a month closes and the platform owner publishes it." },
         columns: [
-          { key: "m", label: "Reporting period", cell: (s) => h(monthLabel(s.m)) + '<div class="secondary">Published ' + formatDate(s.x.publishedAt) + "</div>" },
-          { key: "rev", label: "Revenue (all clients)", cell: (s) => moneyCell(s.x.revenue) },
-          { key: "exp", label: "Recognised business expenses", cell: (s) => moneyCell(s.x.recognisedExpenses) },
-          { key: "adj", label: "Adjustments", cell: (s) => moneyCell(s.x.adjustments) },
-          { key: "dist", label: "Available for distribution", cell: (s) => moneyCell(s.x.distributable) },
-          { key: "dev", label: "Developer 30%", cell: (s) => moneyCell(s.x.developer) },
-          { key: "par", label: "Partners combined 70%", cell: (s) => moneyCell(s.x.partners) },
-          { key: "paid", label: "Partners paid / pending", cell: (s) => moneyCell(s.x.paidPartners) + '<div class="secondary">Pending ' + h(money(s.x.pendingPartners)) + "</div>" },
-          { key: "con", label: "Your clients' contribution", cell: (s) => moneyCell(s.c.contribution) },
-          { key: "st", label: "Status", cell: (s) => badge(s.x.status) },
+          { key: "m", label: "Reporting period", cell: (x) => h(monthLabel(x.month)) + '<div class="secondary">Published ' + formatDate(x.publishedAt) + "</div>" },
+          { key: "rev", label: "Revenue", cell: (x) => moneyCell(x.revenue) },
+          { key: "exp", label: "Recognised expenses", cell: (x) => moneyCell(x.recognisedExpenses) },
+          { key: "adj", label: "Approved adjustments", cell: (x) => moneyCell(x.adjustments) },
+          { key: "dist", label: "Shared net profit", cell: (x) => moneyCell(x.distributable) },
+          { key: "dev", label: "Developer 30%", cell: (x) => moneyCell(x.developer) },
+          { key: "par", label: "Partners combined 70%", cell: (x) => moneyCell(x.partners) },
+          { key: "paid", label: "Partners paid / pending", cell: (x) => moneyCell(x.paidPartners) + '<div class="secondary">Pending ' + h(money(x.pendingPartners)) + "</div>" },
+          { key: "st", label: "Status", cell: (x) => badge(x.status) },
         ] }) +
-      (hidden.length ? '<p class="footer-caption">' + h(hidden.map((s) => monthLabel(s.m)).join(", ")) + ": not published yet.</p>" : "");
+      (hidden.length ? '<p class="footer-caption">' + h(hidden.map((x) => monthLabel(x.month)).join(", ")) + ": not published yet. Their figures are already visible in Shared profit reporting.</p>" : "");
   }
   if (tab === "reports") {
-    const cid = getFilter("bzr-client");
-    const clients = all.filter((c) => !cid || c.id === cid);
-    const rows = p.months.flatMap((m) => commercialSummary(d, [m], clients).rows.map((x) => ({ ...x, month: m })));
-    return head + '<div class="filters">' + periodFilter() + clientFilter("bzr-client", all) + act("Export CSV", "bz-export", { cls: "btn-small" }) + "</div>" +
-      dataTable({ id: "bz-report", caption: "Authorized reporting", rows, minWidth: 900, search: (x) => x.name, searchLabel: "Search report",
-        empty: { title: "No report rows", body: "Choose a period with recorded revenue." },
-        columns: [
-          { key: "m", label: "Month", sort: (x) => x.month, cell: (x) => h(monthShort(x.month)) },
-          { key: "n", label: "Client", sort: (x) => x.name, cell: (x) => h(x.name) },
-          { key: "r", label: "Revenue", sort: (x) => x.revenue, cell: (x) => moneyCell(x.revenue) },
-          { key: "a", label: "Allocated expenses", sort: (x) => x.allocated ?? -1, cell: (x) => moneyCell(x.allocated, { missing: "Not live" }) },
-          { key: "p", label: "Reported profit", sort: (x) => x.reportedProfit, cell: (x) => moneyCell(x.reportedProfit) },
-        ] }) + '<p class="footer-caption">Exports contain only the columns shown: commercial figures for your assigned clients.</p>';
+    return head + '<div class="filters">' + periodFilter() + act("Export CSV", "bz-export", { cls: "btn-small" }) + "</div>" +
+      card({ title: "Shared profit statement", note: h(periodCaption()) + ". Identical to the Developer's export for the same period.", body: plRows(sp) }) +
+      '<p class="footer-caption">The export contains the statement lines shown here: company-wide totals only, no client details.</p>';
   }
   return notFound();
 }
@@ -309,18 +292,13 @@ export const actions = {
   "bz-withdraw-confirm": (el) => finish(withdrawRequest(el.dataset.id), "Request withdrawn"),
   "bz-settings-save": () => { const f = formData("[data-inline-form=bz-settings]"); const res = updatePartnerSettings({ displayName: f["bs-name"], reportPeriod: f["bs-period"], notifyRequests: (f["bs-req"] || []).length > 0, notifyInvoices: (f["bs-inv"] || []).length > 0 }); if (!res.ok) return showFormError(res.error, "bs-error"); rerender(); notify("Settings saved"); },
   "bz-export": () => {
-    const d = getData();
-    const all = scopeClients("biz");
-    const cid = getFilter("bzr-client");
-    const clients = all.filter((c) => !cid || c.id === cid);
-    const p = currentPeriod();
-    const rows = p.months.flatMap((m) => commercialSummary(d, [m], clients).rows.map((x) => [m, x.name, x.revenue, x.allocated ?? "Not live", x.reportedProfit]));
-    const csv = ["month,client,revenue,allocated_expenses,reported_profit"].concat(rows.map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(","))).join("\n");
+    const rows = profitCsv(currentPeriod().months);
+    const csv = rows.map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n");
     window.__lastExport = csv;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "thryvems-partner-report.csv"; document.body.appendChild(a); a.click(); a.remove();
-    notify("Exported " + rows.length + " report rows");
+    a.download = "thryvems-shared-profit.csv"; document.body.appendChild(a); a.click(); a.remove();
+    notify("Exported " + (rows.length - 1) + " statement lines");
   },
 };
 export { getUi, MODULES, TODAY };

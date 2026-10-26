@@ -1,19 +1,20 @@
-/** Developer Console › Finance. Actual costs are visible only here. Commercial (allocated) figures are labelled separately. */
-import { getData, clientById, scopeClients, addCost, COST_CATEGORIES, setAllocation, removeAllocationOverride, updatePricing, addAdjustment, createProject, updateProject, completeMilestone, addMilestone, editMilestoneAmount, PROJECT_STATES, publishStatement, addDistributionAdjustment, recordPayout } from "../store.js";
-import { developerSummary, commercialSummary, actualCosts, distribution, allocationFormula, currentPricing, chargeBreakdown, invoiceTotals, revenueByClient, DEVELOPER_SHARE, PARTNER_SHARE } from "../finance.js";
+/** Developer Console › Finance. One shared profit calculation (finance.sharedProfit) is used here and in the Business Partner workspace. */
+import { getData, clientById, scopeClients, addCost, COST_CATEGORIES, updatePricing, addAdjustment, createProject, updateProject, completeMilestone, addMilestone, editMilestoneAmount, PROJECT_STATES, publishStatement, addDistributionAdjustment, recordPayout } from "../store.js";
+import { sharedProfit, actualCosts, distribution, currentPricing, chargeBreakdown, invoiceTotals, revenueByClient, liveInMonth, activeUsersAt, DEVELOPER_SHARE, PARTNER_SHARE } from "../finance.js";
+import { profitReport, profitFigures, sameBanner, plRows, profitCsv } from "./profit.js";
 import { PLANS, CAPACITY_TIERS, PARTNERS } from "../seed.js";
 import { h, pageHeader, badge, keyFacts, dataTable, sheet, dialog, button, input, select, textarea, combobox, formError, readForm, showFormError, closeOverlay, alertBox, card, row, linkTo, moneyCell, emptyLine, figure, figureGrid, basisBadge, svgBars } from "../ui.js";
 import { money, pct, formatDate, formatDateTime, MONTHS, monthShort, monthLabel, CURRENT_MONTH, TODAY, sum, addDays } from "../util.js";
 import { tabs, notFound, periodFilter, clientFilter, selectFilter, getFilter, currentPeriod, periodCaption, invoiceTable, historyTable, partnerLabel } from "./shared.js";
 import { rerender, notify } from "../registry.js";
 
-const TABS = [["overview", "Overview"], ["revenue", "Revenue"], ["costs", "Costs"], ["allocations", "Allocations"], ["pricing", "Pricing"], ["subscriptions", "Subscriptions"], ["enterprise", "Enterprise"], ["distributions", "Distributions"]].map(([id, label]) => ({ id, label }));
+const TABS = [["overview", "Overview"], ["revenue", "Revenue"], ["costs", "Costs"], ["profit", "Shared profit reporting"], ["allocations", "Allocations"], ["pricing", "Pricing"], ["subscriptions", "Subscriptions"], ["enterprise", "Enterprise"], ["distributions", "Distributions"]].map(([id, label]) => ({ id, label }));
 
 export function render(r) {
   const tab = r.query.get("tab") || "overview";
-  const fn = { overview, revenue, costs, allocations, pricing, subscriptions, enterprise, distributions }[tab];
+  const fn = { overview, revenue, costs, profit: () => profitReport("dev", r), allocations, pricing, subscriptions, enterprise, distributions }[tab];
   if (!fn) return notFound();
-  return pageHeader({ title: "Finance", description: "Developer only. Actual provider costs and actual operating profit appear only here. Partner-facing figures use allocated commercial expenses and are labelled as such." }) +
+  return pageHeader({ title: "Finance", description: "Revenue, actual expenses and one shared net profit. Business Partners see the same totals for the same period; provider credentials and configuration stay here.", actions: tab === "profit" ? button("Export statement", "sp-export", { cls: "btn-small" }) : "" }) +
     tabs(TABS, tab, "#/dev/finance", "Finance sections") + fn();
 }
 const filters = (withClient = true) => '<div class="filters">' + periodFilter() + (withClient ? clientFilter("fin-client", scopeClients("dev")) : "") + "</div>";
@@ -26,45 +27,33 @@ function overview() {
   const d = getData();
   const p = currentPeriod();
   const ids = selectedIds();
-  const s = developerSummary(d, p.months, ids);
+  const sp = sharedProfit(d, p.months);
   const dist = p.months.map((m) => distribution(d, m));
-  const trend = MONTHS.map((m) => ({ m, s: developerSummary(d, [m], ids) }));
-  return filters() + '<p class="small muted">' + h(periodCaption()) + (ids ? " · one client; platform-level unallocated costs and operating expenses are excluded" : "") + "</p>" +
+  const trend = MONTHS.map((m) => ({ m, s: sharedProfit(d, [m]) }));
+  const one = ids ? sp.rows.find((x) => x.client.id === ids[0]) : null;
+  return filters() + '<p class="small muted">' + h(periodCaption()) + "</p>" + sameBanner(sp, true) + profitFigures(sp, "#/dev/finance?tab=profit") +
     figureGrid([
-      figure({ label: "Total revenue (recognised)", value: money(s.revenue), note: "Subscriptions " + money(s.subscription) + " · enterprise " + money(s.enterprise) + " · adjustments " + money(s.adjustments), icon: "₱", testid: "fin-revenue" }),
-      figure({ label: "Actual direct infrastructure costs", value: money(s.direct), badge: s.incomplete ? "Incomplete" : "Complete", tone: s.incomplete ? "soon" : "done", note: s.missingCount ? s.missingCount + " item(s) not available" : "Per client", icon: "▣", testid: "fin-direct" }),
-      figure({ label: "Shared infrastructure costs", value: money(s.shared), note: ids ? "This client's share (per active user)" : "Unallocated platform tools " + money(s.unallocated), icon: "◫", testid: "fin-shared" }),
-      figure({ label: "Other real operating expenses", value: ids ? "No data" : money(s.opex), note: ids ? "Platform-level; not split by client" : "Accounting, workspace, licences", icon: "▤", testid: "fin-opex" }),
-    ], "Revenue and cost figures") +
-    figureGrid([
-      figure({ label: "Actual operating profit", value: money(s.profit), badge: "Margin " + pct(s.margin), tone: s.profit >= 0 ? "done" : "overdue", note: "Actual cost basis", icon: "✓", testid: "fin-actual-profit" }),
-      figure({ label: "Distributable profit (commercial basis)", value: ids ? "No data" : money(sum(dist, "distributable")), note: ids ? "Pool is calculated for all clients" : "Not the same figure as actual operating profit", icon: "◇", testid: "fin-distributable" }),
-      figure({ label: "Developer distribution · 30%", value: ids ? "No data" : money(sum(dist, "developer")), note: "Paid " + money(sum(dist, "paidDeveloper")), icon: "♙", href: "#/dev/finance?tab=distributions", testid: "fin-dev-share" }),
-      figure({ label: "Business partners combined · 70%", value: ids ? "No data" : money(sum(dist, "partners")), note: "Individual shares not defined", icon: "♟", href: "#/dev/finance?tab=distributions" }),
-    ], "Profit figures") +
-    card({ title: "How these figures are calculated", note: "Period: " + h(periodCaption()) + ". Currency: PHP. All records are synthetic.", body:
-      formula("Recognised revenue", "Invoice line net amounts (excluding 12% VAT) for each service month; annual invoices spread over 12 months; minus discounts and credit notes in the month recorded. Void invoices excluded.", "invoices, adjustments") +
-      formula("Direct actual costs", "Provider charges attributed to one client. Reconciled, Manual and Estimate entries are counted; Not available items are excluded and mark the total Incomplete (never counted as 0).", "cost ledger") +
-      formula("Shared actual costs", "Platform-wide provider charges split per active user among clients live in that month (decision 5).", "cost ledger") +
-      formula("Actual operating profit", "Recognised revenue − direct − shared − unallocated actual costs − other operating expenses.", "") +
-      formula("Distributable profit", "Recognised revenue − allocated service expenses − recognised shared business expenses ± statement adjustments. Basis, tax treatment and reconciliation need confirmation before real accounting.", "allocation formulas, shared business expenses") +
-      formula("Distribution", (DEVELOPER_SHARE * 100) + "% Developer and " + (PARTNER_SHARE * 100) + "% business partners combined, of distributable profit (never of gross revenue). Individual partner shares are not defined.", "") }) +
-    card({ title: "Month-over-month trend", note: ids ? "Selected client only." : "All clients.", body: '<div class="card-body">' +
-      svgBars([{ name: "Revenue", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.revenue })) }, { name: "Actual costs and expenses", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.direct + t.s.shared + t.s.unallocated + t.s.opex })) }, { name: "Actual operating profit", values: trend.map((t) => ({ label: monthShort(t.m), value: Math.max(0, t.s.profit) })) }], { label: "Revenue, costs and profit by month", format: money }) +
-      '<div class="table-scroll"><table class="data-table" style="min-width:720px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Actual costs and expenses</th><th scope="col">Actual operating profit</th><th scope="col">Margin</th><th scope="col">Change in profit</th></tr></thead><tbody>' +
-      trend.map((t, i) => { const prev = trend[i - 1]; const delta = prev ? t.s.profit - prev.s.profit : null; return "<tr><td>" + h(monthLabel(t.m)) + "</td><td>" + moneyCell(t.s.revenue) + "</td><td>" + moneyCell(t.s.direct + t.s.shared + t.s.unallocated + t.s.opex) + (t.s.incomplete ? " " + badge("Incomplete") : "") + "</td><td>" + moneyCell(t.s.profit) + "</td><td>" + pct(t.s.margin) + "</td><td>" + (delta == null ? '<span class="muted">No data</span>' : moneyCell(delta)) + "</td></tr>"; }).join("") + "</tbody></table></div></div>" }) +
-    '<h2 class="section-title">Per client</h2>' +
-    dataTable({ id: "fin-clients", caption: "Revenue, cost and profit per client", rows: s.rows.filter((x) => x.revenue || x.cost), minWidth: 1100,
+      figure({ label: "Actual infrastructure expenses", value: money(sp.direct + sp.shared + sp.unallocated), badge: sp.incomplete ? "Incomplete" : "Complete", tone: sp.incomplete ? "soon" : "done", note: "Direct " + money(sp.direct) + " · shared " + money(sp.shared) + " · unallocated " + money(sp.unallocated), icon: "server", href: "#/dev/finance?tab=costs", testid: "fin-infra" }),
+      figure({ label: "Operating and shared business expenses", value: money(sp.opex + sp.sharedBusiness), note: "Operating " + money(sp.opex) + " · shared business " + money(sp.sharedBusiness), icon: "building-2", href: "#/dev/finance?tab=costs", testid: "fin-opex" }),
+      figure({ label: "Developer distribution · 30%", value: money(sum(dist, "developer")), note: "Paid " + money(sum(dist, "paidDeveloper")), icon: "users", href: "#/dev/finance?tab=distributions", testid: "fin-dev-share" }),
+      figure({ label: "Business Partners combined · 70%", value: money(sum(dist, "partners")), note: "Individual shares not defined", icon: "users-round", href: "#/dev/finance?tab=distributions" }),
+    ], "Expense and distribution figures") +
+    (one ? card({ title: "Selected client: " + h(one.client.name), note: "Revenue minus this client's direct and shared infrastructure. Company-wide costs are not split by client.", body: '<div class="card-body">' + keyFacts([["Revenue", h(money(one.revenue))], ["Direct infrastructure", h(money(one.direct))], ["Shared infrastructure share", h(money(one.shared))], ["Profit from this client", h(money(one.profit)) + " · margin " + pct(one.margin)]]) + "</div>" }) : "") +
+    card({ title: "Month-over-month trend", note: "Company-wide, one calculation.", body: '<div class="card-body">' +
+      svgBars([{ name: "Revenue", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.revenue })) }, { name: "Recognised expenses", values: trend.map((t) => ({ label: monthShort(t.m), value: t.s.expenses })) }, { name: "Net profit", values: trend.map((t) => ({ label: monthShort(t.m), value: Math.max(0, t.s.net) })) }], { label: "Revenue, expenses and net profit by month", format: money }) +
+      '<div class="table-scroll"><table class="data-table" style="min-width:720px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Recognised expenses</th><th scope="col">Net profit</th><th scope="col">Margin</th><th scope="col">Change in profit</th></tr></thead><tbody>' +
+      trend.map((t, i) => { const prev = trend[i - 1]; const delta = prev ? t.s.net - prev.s.net : null; return "<tr><td>" + h(monthLabel(t.m)) + "</td><td>" + moneyCell(t.s.revenue) + "</td><td>" + moneyCell(t.s.expenses) + (t.s.incomplete ? " " + badge("Incomplete") : "") + "</td><td>" + moneyCell(t.s.net) + "</td><td>" + pct(t.s.margin) + "</td><td>" + (delta == null ? '<span class="muted">No data</span>' : moneyCell(delta)) + "</td></tr>"; }).join("") + "</tbody></table></div></div>" }) +
+    '<h2 class="section-title">Profit by client</h2>' +
+    dataTable({ id: "fin-clients", caption: "Revenue, cost and profit per client", rows: sp.rows, minWidth: 1100,
       search: (x) => x.client.name, searchLabel: "Search clients", empty: { title: "No financial records", body: "Clients with revenue or costs in the period appear here." },
       columns: [
         { key: "c", label: "Client", sort: (x) => x.client.name, cell: (x) => linkTo(x.client.name, "#/dev/organisations/" + x.client.id) },
         { key: "rev", label: "Revenue", sort: (x) => x.revenue, cell: (x) => moneyCell(x.revenue) },
-        { key: "dir", label: "Direct actual", sort: (x) => x.direct, cell: (x) => moneyCell(x.direct) + (x.incomplete ? " " + badge("Incomplete") : "") },
+        { key: "dir", label: "Direct infrastructure", sort: (x) => x.direct, cell: (x) => moneyCell(x.direct) + (x.incomplete ? " " + badge("Incomplete") : "") },
         { key: "sh", label: "Shared share", sort: (x) => x.shared, cell: (x) => moneyCell(x.shared) },
-        { key: "cost", label: "Cost per client", sort: (x) => x.cost, cell: (x) => moneyCell(x.cost) },
-        { key: "profit", label: "Profit per client", sort: (x) => x.profit, cell: (x) => moneyCell(x.profit) },
+        { key: "profit", label: "Profit from client", sort: (x) => x.profit, cell: (x) => moneyCell(x.profit) },
         { key: "m", label: "Margin", sort: (x) => x.margin ?? -1, cell: (x) => pct(x.margin) },
-      ] });
+      ] }) + '<p class="footer-caption">Client rows plus company-wide costs and adjustments (' + h(money(sp.companyWide)) + ") equal net profit " + h(money(sp.net)) + ".</p>";
 }
 
 /* ----------------------------------------------------------------- revenue */
@@ -109,7 +98,7 @@ function costs() {
   const entries = d.costs.filter((c) => p.months.includes(c.month) && (!cat || c.category === cat) && (!basis || c.basis === basis) && (!scope || (scope === "shared" ? c.shared : scope === "unallocated" ? c.unallocated : !c.shared && !c.unallocated)));
   const byCat = COST_CATEGORIES.map((c) => ({ c, v: sum(d.costs.filter((x) => p.months.includes(x.month) && x.category === c && x.php != null), "php"), missing: d.costs.filter((x) => p.months.includes(x.month) && x.category === c && x.php == null).length })).filter((x) => x.v || x.missing);
   return '<div class="filters">' + periodFilter() + "</div>" +
-    alertBox("info", "<strong>Developer only.</strong> These are actual provider costs from the cost ledger (synthetic). Partners never see them; they see allocated commercial expenses instead.") +
+    alertBox("info", "Actual provider costs from the cost ledger (synthetic). Business Partners see the same amounts and categories in Shared profit reporting; provider accounts, credentials and configuration stay in the Developer Console.") +
     figureGrid([
       figure({ label: "Direct (per client)", value: money(k.direct), badge: k.missing.length ? "Incomplete" : "Complete", tone: k.missing.length ? "soon" : "done", note: k.missing.length + " item(s) not available", icon: "▣" }),
       figure({ label: "Shared (split per active user)", value: money(k.shared), icon: "◫" }),
@@ -139,28 +128,29 @@ function costs() {
 function allocations() {
   const d = getData();
   const p = currentPeriod();
-  const def = allocationFormula(d, null, CURRENT_MONTH);
-  const live = d.clients.filter((c) => ["Live", "Suspended"].includes(c.accountStatus));
-  const com = commercialSummary(d, p.months, live);
-  const act = actualCosts(d, p.months);
-  const rows = com.rows.map((x) => ({ ...x, client: clientById(x.clientId), f: allocationFormula(d, x.clientId, CURRENT_MONTH), actual: act.perClient.get(x.clientId) }));
+  const rows = [];
+  for (const m of p.months) {
+    const live = d.clients.filter((c) => liveInMonth(c, m));
+    const users = live.reduce((a, c) => a + activeUsersAt(c), 0);
+    for (const x of d.costs.filter((k) => k.month === m && k.shared && k.php != null)) {
+      const parts = live.map((c) => ({ c, amount: users > 0 ? (x.php * activeUsersAt(c)) / users : 0 }));
+      rows.push({ m, x, users, clients: live.length, allocated: sum(parts, "amount"), parts });
+    }
+  }
   const sbe = d.sharedBusiness.filter((x) => p.months.includes(x.month));
   return '<div class="filters">' + periodFilter() + "</div>" +
-    alertBox("info", "Allocated service expenses are what partners see as client expenses. They are set here for commercial reporting and are <strong>not</strong> the actual provider costs. Every change is recorded with an effective date and reason.") +
-    card({ title: "Default allocated service expense", note: "Applies to every live client without its own formula. Illustrative amounts.", action: button("Change default", "alloc-edit", { cls: "btn-small" }), body: '<div class="card-body">' +
-      keyFacts([["Formula in force (" + monthLabel(CURRENT_MONTH) + ")", h(money(def.fixed)) + " + " + h(money(def.perUser)) + " per active user"], ["Effective from", formatDate(def.effectiveFrom)], ["Reason", h(def.reason)], ["Allocated in period (live clients)", h(money(com.allocated))]]) + "</div>" }) +
-    dataTable({ id: "alloc-clients", caption: "Allocated versus actual per client", rows, minWidth: 1200,
-      search: (x) => x.client.name, searchLabel: "Search clients", empty: { title: "No live clients", body: "Allocations apply to live clients." },
+    alertBox("info", "<strong>Method:</strong> shared infrastructure costs are split among clients live in the month, per active user. Unallocated platform costs, operating and shared business expenses stay company-wide. Every split adds back to its original expense, and the same figures appear in the Business Partner workspace.") +
+    dataTable({ id: "alloc-shared", caption: "Shared infrastructure allocations", rows, minWidth: 1100, search: (r) => r.x.category + " " + r.x.provider, searchLabel: "Search shared costs",
+      empty: { title: "No shared costs", body: "Shared provider costs for the period appear here." },
       columns: [
-        { key: "c", label: "Client", sort: (x) => x.client.name, cell: (x) => linkTo(x.client.name, "#/dev/organisations/" + x.client.id) },
-        { key: "f", label: "Formula", cell: (x) => h(money(x.f.fixed)) + " + " + h(money(x.f.perUser)) + "/user " + (x.f.own ? badge("Own formula", "progress") : badge("Default", "draft")) },
-        { key: "al", label: "Allocated (commercial)", sort: (x) => x.allocated ?? -1, cell: (x) => moneyCell(x.allocated, { missing: "Not live" }) },
-        { key: "ac", label: "Actual (developer only)", sort: (x) => x.actual?.total ?? -1, cell: (x) => moneyCell(x.actual?.total) + (x.actual?.incomplete ? " " + badge("Incomplete") : "") },
-        { key: "diff", label: "Allocated − actual", sort: (x) => (x.allocated || 0) - (x.actual?.total || 0), cell: (x) => moneyCell((x.allocated || 0) - (x.actual?.total || 0)) },
-        { key: "a", label: "Actions", srOnly: true, cell: (x) => button("Set formula", "alloc-edit", { id: x.clientId, cls: "btn-small" }) + (x.f.own ? button("Use default", "alloc-revert", { id: x.clientId, cls: "btn-small btn-quiet" }) : "") },
+        { key: "m", label: "Month", sort: (r) => r.m, cell: (r) => h(monthShort(r.m)) },
+        { key: "c", label: "Shared cost", sort: (r) => r.x.category, cell: (r) => h(r.x.category) + '<div class="secondary">' + h(r.x.provider) + " · " + h(r.x.source) + "</div>" },
+        { key: "o", label: "Original", sort: (r) => r.x.php, cell: (r) => moneyCell(r.x.php) },
+        { key: "n", label: "Split among", cell: (r) => h(r.clients + " clients, " + r.users + " active users") },
+        { key: "a", label: "Allocated", sort: (r) => r.allocated, cell: (r) => moneyCell(r.allocated) },
+        { key: "ok", label: "Reconciles", cell: (r) => badge(Math.abs(r.allocated - r.x.php) < 0.02 ? "Reconciled" : "Not allocated", Math.abs(r.allocated - r.x.php) < 0.02 ? "done" : "soon") },
       ] }) +
-    card({ title: "Shared business expenses", note: "Recognised in the distribution pool. Partners see these only as a total in published statements.", body: sbe.map((x) => row(h(x.category), monthShort(x.month), "<strong>" + h(money(x.php)) + "</strong> " + badge(x.recognised ? "Recognised" : "Not recognised", x.recognised ? "done" : "draft"))).join("") || emptyLine("No shared business expenses", "") }) +
-    historyTable("alloc-history", d.audit.filter((a) => /alloc/i.test(a.action)), { caption: "Allocation change history" });
+    card({ title: "Shared business expenses", note: "Recognised amounts are part of recognised expenses in both workspaces.", body: sbe.map((x) => row(h(x.category), monthShort(x.month), "<strong>" + h(money(x.php)) + "</strong> " + badge(x.recognised ? "Recognised" : "Not recognised", x.recognised ? "done" : "draft"))).join("") || emptyLine("No shared business expenses", "") });
 }
 
 /* ----------------------------------------------------------------- pricing */
@@ -277,9 +267,9 @@ function openProject(id) {
 function distributions() {
   const d = getData();
   const rows = MONTHS.slice().reverse().map((m) => distribution(d, m));
-  return alertBox("warning", "<strong>Basis needs confirmation.</strong> Distributable profit = recognised revenue − allocated service expenses − recognised shared business expenses ± adjustments. 30% Developer, 70% business partners combined. Individual partner shares are not defined. Tax treatment and reconciliation must be confirmed before real accounting. Payouts are records only; no money is moved.") +
+  return alertBox("info", "Distribution starts from the shared net profit, the same figure Business Partners see: 30% Developer, 70% Business Partners combined. Losses are not distributed. Individual partner shares are not defined. Payouts are records only; no money is moved.") +
     figureGrid([
-      figure({ label: "Distributable profit, Jul–Oct 2026", value: money(sum(rows, "distributable")), icon: "◇" }),
+      figure({ label: "Shared net profit, Jul–Oct 2026", value: money(sum(rows, "distributable")), icon: "circle-check" }),
       figure({ label: "Developer · 30%", value: money(sum(rows, "developer")), note: "Pending " + money(sum(rows, "pendingDeveloper")), icon: "♙" }),
       figure({ label: "Business partners combined · 70%", value: money(sum(rows, "partners")), note: "Pending " + money(sum(rows, "pendingPartners")), icon: "♟" }),
       figure({ label: "Paid in total", value: money(sum(rows, "paid")), note: "Pending " + money(sum(rows, "pending")), icon: "✓" }),
@@ -290,7 +280,7 @@ function distributions() {
         { key: "rev", label: "Revenue", cell: (x) => moneyCell(x.revenue) },
         { key: "exp", label: "Recognised business expenses", cell: (x) => moneyCell(x.recognisedExpenses) },
         { key: "adj", label: "Adjustments", cell: (x) => moneyCell(x.adjustments) },
-        { key: "dist", label: "Available for distribution", cell: (x) => moneyCell(x.distributable) },
+        { key: "dist", label: "Shared net profit", cell: (x) => moneyCell(x.distributable) },
         { key: "dev", label: "Developer 30%", cell: (x) => moneyCell(x.developer) },
         { key: "par", label: "Partners 70%", cell: (x) => moneyCell(x.partners) },
         { key: "paid", label: "Paid", cell: (x) => moneyCell(x.paid) },
@@ -301,7 +291,7 @@ function distributions() {
 function openStatement(month) {
   const x = distribution(getData(), month);
   sheet({ title: "Distribution statement · " + monthLabel(month), description: badge(x.status) + (x.publishedAt ? " Published " + formatDate(x.publishedAt) : " Not visible to partners until published."), wide: true, body:
-    keyFacts([["Recognised revenue (all clients)", h(money(x.revenue))], ["Allocated service expenses", "− " + h(money(x.allocated))], ["Recognised shared business expenses", "− " + h(money(x.sharedBusiness))], ["Adjustments", h(money(x.adjustments))], ["Profit available for distribution", "<strong>" + h(money(x.distributable)) + "</strong>"],
+    keyFacts([["Recognised revenue (all clients)", h(money(x.revenue))], ["Recognised expenses", "− " + h(money(x.recognisedExpenses))], ["Approved adjustments", h(money(x.adjustments))], ["Shared net profit (to distribute)", "<strong>" + h(money(x.distributable)) + "</strong>"],
       ["Developer allocation · 30%", h(money(x.developer)) + " (paid " + h(money(x.paidDeveloper)) + ", pending " + h(money(x.pendingDeveloper)) + ")"], ["Business partners combined · 70%", h(money(x.partners)) + " (paid " + h(money(x.paidPartners)) + ", pending " + h(money(x.pendingPartners)) + ")"], ["Partner-level allocation rule", '<span class="muted">Not defined. No individual shares are calculated.</span>']]) +
     "<h3>Adjustments</h3>" + (x.adjustmentList.map((a) => row(h(money(a.amount)), formatDateTime(a.at) + " · " + h(a.by) + " · " + h(a.reason))).join("") || '<p class="muted small">None.</p>') +
     (x.status !== "Paid" ? '<fieldset class="inline-form"><legend>Add adjustment</legend>' + input("Amount (₱, negative to reduce)", "da-amount", "", { type: "number", step: "0.01" }) + textarea("Reason", "da-reason", "", { rows: 2 }) + formError("da-error") + button("Add adjustment", "dist-adj", { id: month, cls: "btn-small", submit: true }) + "</fieldset>" : "") +
@@ -316,6 +306,7 @@ const formData = () => readForm(document.querySelector("[data-form]"));
 function finish(res, msg, errId) { if (!res.ok) return showFormError(res.error, errId); closeOverlay(true); rerender(); notify(msg); }
 
 export const actions = {
+  "sp-export": () => { const csv = profitCsv(currentPeriod().months).map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n"); window.__lastExport = csv; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "thryvems-shared-profit.csv"; document.body.appendChild(a); a.click(); a.remove(); notify("Statement exported"); },
   "cost-add": () => sheet({ title: "Add cost entry", description: "Manual or estimated actual cost. Reconciled amounts come from provider imports (not connected).", body:
     '<div class="form-grid">' + select("Category", "c-cat", "", COST_CATEGORIES, { placeholder: "Choose a category" }) + input("Provider", "c-prov", "") + select("Month", "c-month", CURRENT_MONTH, MONTHS.map((m) => ({ value: m, label: monthLabel(m) }))) + select("Basis", "c-basis", "Manual", ["Manual", "Estimate"]) +
     combobox("Applies to", "c-scope", "", ["Shared", "Unallocated", ...getData().clients.filter((c) => ["Live", "Suspended"].includes(c.accountStatus)).map((c) => c.name)], { hint: "Type a client name, Shared or Unallocated." }) + input("Amount (₱)", "c-php", "", { type: "number", min: 0, step: "0.01" }) + "</div>" + input("Source", "c-src", "", { hint: "Where the amount comes from, e.g. 'AWS bill October (synthetic)'." }) + formError(),
@@ -326,16 +317,6 @@ export const actions = {
     const scope = sc === "shared" ? "shared" : sc === "unallocated" ? "unallocated" : getData().clients.find((c) => c.name.toLowerCase() === sc)?.id || "";
     finish(addCost({ category: f["c-cat"], provider: f["c-prov"], month: f["c-month"], basis: f["c-basis"], scope, php: f["c-php"], source: f["c-src"] }), "Cost entry added");
   },
-  "alloc-edit": (el) => {
-    const id = el.dataset.id || null;
-    const f = allocationFormula(getData(), id, CURRENT_MONTH);
-    sheet({ title: id ? "Allocated expense for " + clientById(id).name : "Default allocated expense", description: "Commercial reporting only. Applies from the effective date; closed months keep their figures.", body:
-      '<div class="form-grid">' + input("Fixed amount per month (₱)", "a-fixed", f.fixed, { type: "number", min: 0 }) + input("Per active user (₱)", "a-per", f.perUser, { type: "number", min: 0 }) + input("Effective from", "a-eff", CURRENT_MONTH + "-01", { type: "date", min: CURRENT_MONTH + "-01" }) + "</div>" + textarea("Reason", "a-reason", "", { rows: 2 }) + formError(),
-      footer: button("Cancel", "close") + button("Save formula", "alloc-save", { id: id || "", cls: "btn-primary", submit: true, primary: true }) });
-  },
-  "alloc-save": (el) => { const f = formData(); finish(setAllocation(el.dataset.id || null, { fixed: f["a-fixed"], perUser: f["a-per"], effectiveFrom: f["a-eff"], reason: f["a-reason"] }), "Allocation formula saved"); },
-  "alloc-revert": (el) => dialog({ title: "Use the default formula?", description: clientById(el.dataset.id).name + " returns to the default from 1 October 2026.", body: textarea("Reason", "ar-reason", "", { rows: 2 }) + formError(), footer: button("Cancel", "close") + button("Use default", "alloc-revert-save", { id: el.dataset.id, cls: "btn-primary", submit: true }) }),
-  "alloc-revert-save": (el) => finish(removeAllocationOverride(el.dataset.id, formData()["ar-reason"]), "Client returned to the default formula"),
   "price-edit": () => {
     const p = currentPricing(getData());
     sheet({ title: "Change pricing", description: "New pricing applies from a future date. Prices remain illustrative until approved.", body:

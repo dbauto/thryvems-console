@@ -1,7 +1,7 @@
 /** Unit tests for src/finance.js. Expected numbers are worked out by hand in the comments. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { revenueByClient, actualCosts, developerSummary, commercialSummary, distribution, partnerContribution, invoiceTotals, validateSeats, allocatedExpense } from "../src/finance.js";
+import { revenueByClient, actualCosts, sharedProfit, expenseCategories, distribution, invoiceTotals, validateSeats } from "../src/finance.js";
 import { buildSeed, seatsAt, subscriptionCharge } from "../src/seed.js";
 
 const OCT = ["2026-10"];
@@ -51,45 +51,47 @@ test("shared costs split per active user; missing costs mark Incomplete and are 
   assert.equal(k.opex, 1000);
 });
 
-test("actual operating profit reconciles: per-client profits − unallocated − opex = overall", () => {
-  const s = developerSummary(fixture(), OCT);
+test("one shared net profit: revenue − recognised expenses ± approved adjustments", () => {
+  const s = sharedProfit(fixture(), OCT);
   assert.equal(s.revenue, 86000);
   assert.equal(s.direct, 1200);
   assert.equal(s.shared, 300);
-  assert.equal(s.profit, 83450); // 86,000 − 1,200 − 300 − 50 − 1,000
+  assert.equal(s.sharedBusiness, 2000); // unrecognised 9,999 excluded
+  assert.equal(s.notRecognised, 9999);
+  assert.equal(s.expenses, 4550); // 1,200 + 300 + 50 + 1,000 + 2,000
+  assert.equal(s.approvedAdjustments, -500);
+  assert.equal(s.net, 80950);
   const a = s.rows.find((r) => r.client.id === "A"), b = s.rows.find((r) => r.client.id === "B");
   assert.equal(a.profit, 5100); // 6,000 − 700 − 200
   assert.equal(b.profit, 79400); // 80,000 − 500 − 100
-  assert.equal(a.profit + b.profit - s.unallocated - s.opex, s.profit);
+  assert.equal(a.profit + b.profit + s.companyWide, s.net);
   assert.equal(s.incomplete, true);
 });
 
-test("commercial (reported) basis uses allocated expenses and has no actual-cost fields", () => {
+test("expense categories add up to recognised expenses", () => {
   const f = fixture();
-  const s = commercialSummary(f, OCT, f.clients);
-  assert.equal(s.allocated, 2450); // A 1,000 + 20×15 = 1,300; B 1,000 + 10×15 = 1,150
-  assert.equal(s.reportedProfit, 83550);
-  const json = JSON.stringify(s);
-  for (const k of ["direct", "shared", "actual", "opex", "unallocated", "infra"]) assert.equal(json.toLowerCase().includes('"' + k), false, "leaked field " + k);
-  assert.equal(s.rows.find((r) => r.clientId === "C").allocated, null); // not live → no allocation, not 0
+  const cats = expenseCategories(f, OCT);
+  assert.equal(Math.round(cats.reduce((x, c) => x + c.amount, 0)), sharedProfit(f, OCT).expenses);
 });
 
-test("distribution is 30/70 of distributable profit, not of gross revenue", () => {
-  const d = distribution(fixture(), "2026-10");
-  // 86,000 − (2,450 allocated + 2,000 recognised shared business) − 500 adjustment
-  assert.equal(d.distributable, 81050);
-  assert.equal(d.developer, 24315);
-  assert.equal(d.partners, 56735);
-  assert.notEqual(d.developer, 86000 * 0.3);
+test("distribution is 30/70 of the same shared net profit, not of gross revenue", () => {
+  const f = fixture();
+  const d = distribution(f, "2026-10");
+  assert.equal(d.distributable, sharedProfit(f, OCT).net);
+  assert.equal(d.developer, 24285);
+  assert.equal(d.partners, 56665);
   assert.equal(d.paidDeveloper, 10000);
-  assert.equal(d.pendingDeveloper, 14315);
-  assert.equal(d.pendingPartners, 56735);
+  assert.equal(d.pendingDeveloper, 14285);
+  assert.equal(d.pendingPartners, 56665);
 });
 
-test("partner contribution covers only that partner's assigned clients", () => {
-  const c = partnerContribution(fixture(), OCT, "partner-a");
-  assert.equal(c.revenue, 6000);
-  assert.equal(c.contribution, 4700);
+test("losses are not distributed", () => {
+  const f = fixture();
+  f.opex = [{ month: "2026-10", php: 500000 }];
+  const d = distribution(f, "2026-10");
+  assert.ok(d.net < 0);
+  assert.equal(d.developer, 0);
+  assert.equal(d.partners, 0);
 });
 
 test("invoice totals: VAT 12%, payments, outstanding and overdue status", () => {
@@ -125,9 +127,9 @@ test("seed: invoices follow seat history and the full preview reconciles", () =>
   assert.equal(seatsAt(demo.subscription, "2026-09"), 32);
   const aug = seed.invoices.find((i) => i.clientId === demo.id && i.kind === "Subscription" && i.lines[0].months[0] === "2026-08");
   assert.equal(aug.lines[0].net, 8600);
-  const s = developerSummary(seed, ["2026-07", "2026-08", "2026-09", "2026-10"]);
+  const s = sharedProfit(seed, ["2026-07", "2026-08", "2026-09", "2026-10"]);
   const perClient = s.rows.reduce((a, r) => a + r.profit, 0);
-  assert.ok(Math.abs(perClient - s.unallocated - s.opex - s.profit) < 0.05, "per-client + platform-level = overall");
+  assert.ok(Math.abs(perClient + s.companyWide - s.net) < 0.05, "per-client + company-wide = net");
+  assert.ok(Math.abs(s.revenue - s.expenses + s.approvedAdjustments - s.net) < 0.05);
   assert.ok(seed.clients.length >= 50, "scale: at least 50 synthetic organisations");
-  assert.equal(allocatedExpense(seed, seed.clients.find((c) => c.accountStatus === "Account created"), "2026-10"), null);
 });

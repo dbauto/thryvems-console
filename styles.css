@@ -163,3 +163,15 @@ main h1[tabindex="-1"]:focus{outline:none}
 .topbar .brand-name{font-size:14px}
 .brand-ws{font-weight:500;color:var(--muted-foreground);font-size:14px}
 .sidebar.collapsed .brand-name{display:none}
+
+/* Light ThryveMS sidebar, matching the iQMS app (unified console redesign, 26 Oct 2026) */
+.sidebar{--console:#fff;--console-raised:var(--accent);--console-text:var(--muted-foreground);background:var(--card);border-right:1px solid var(--border);color:var(--foreground)}
+.sidebar .wordmark{color:var(--foreground)}.sidebar .wordmark-ms{color:var(--primary)}
+.sidebar .nav a[aria-current=page],.sidebar .nav a:hover:not([aria-current=page]),.sidebar-pin:hover,.sidebar-footer .footer-link:hover,.sidebar-footer .footer-link.active{color:var(--primary);background:var(--accent)}
+.sidebar .brand small,.sidebar .nav-label{color:var(--muted-foreground)}
+.sidebar .product-symbol{object-fit:contain}
+:root.dark .sidebar{--console:var(--card);--console-raised:var(--secondary)}
+:root.dark .sidebar .nav a[aria-current=page],:root.dark .sidebar .nav a:hover{color:var(--foreground)}
+:root.dark .sidebar .product-symbol{content:url(./assets/thryvems-mark-dark.png)}
+.alert-success{background:var(--done-tint)}
+.pl-total td,.pl-total th{font-weight:700;border-top:2px solid var(--border)}

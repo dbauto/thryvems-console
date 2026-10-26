@@ -6,7 +6,7 @@
  */
 import { getData, getUi, scopeClients, businessPartnerId, isInspecting, partnerOf, deploymentFor, submitRequest, withdrawRequest, updatePartnerSettings, partnerSettings } from "../store.js";
 import { sharedProfit, expenseCategories, distribution, invoiceTotals, currentPricing, chargeBreakdown } from "../finance.js";
-import { profitReport, profitFigures, sameBanner, plRows, profitRecords, profitCsv } from "./profit.js";
+import { profitReport, profitFigures, sameBanner, plRows, profitRecords, profitCsv, profitChart } from "./profit.js";
 import { MODULES } from "../seed.js";
 import { h, pageHeader, badge, keyFacts, dataTable, sheet, dialog, button, input, select, textarea, formError, readForm, showFormError, closeOverlay, alertBox, card, row, linkTo, moneyCell, emptyLine, figure, figureGrid, scrollList } from "../ui.js";
 import { money, pct, formatDate, formatDateTime, MONTHS, monthLabel, monthShort, CURRENT_MONTH, TODAY, sum } from "../util.js";
@@ -175,7 +175,7 @@ export function renderFinance(r) {
     return head + '<div class="filters">' + periodFilter() + "</div>" + sameBanner(sp, false) + profitFigures(sp, "#/biz/finance?tab=profit") +
       '<section class="split">' + card({ title: "How net profit is worked out", note: h(periodCaption()), body: plRows(sp) }) +
       card({ title: "Distribution to partners", note: "From the same net profit. Losses are not distributed.", body: '<div class="card-body">' + keyFacts([["Shared net profit", h(money(sum(dist, "net")))], ["Business Partners combined · 70%", h(money(sum(dist, "partners")))], ["Paid", h(money(sum(dist, "paidPartners")))], ["Pending", h(money(sum(dist, "pendingPartners")))], ["Individual partner shares", '<span class="muted">Not defined yet</span>']]) + "</div>" }) + "</section>" +
-      card({ title: "Month by month", body: '<div class="table-scroll"><table class="data-table" style="min-width:640px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Recognised expenses</th><th scope="col">Net profit</th><th scope="col">Margin</th></tr></thead><tbody>' + trend.map((x) => "<tr><td>" + h(monthLabel(x.m)) + "</td><td>" + moneyCell(x.s.revenue) + "</td><td>" + moneyCell(x.s.expenses) + "</td><td>" + moneyCell(x.s.net) + "</td><td>" + pct(x.s.margin) + "</td></tr>").join("") + "</tbody></table></div>" });
+      card({ title: "Month by month", note: "Company-wide, the same figures the Developer sees.", body: '<div class="card-body">' + profitChart(trend) + "</div>" + '<div class="table-scroll"><table class="data-table" style="min-width:640px"><thead><tr><th scope="col">Month</th><th scope="col">Revenue</th><th scope="col">Recognised expenses</th><th scope="col">Net profit</th><th scope="col">Margin</th></tr></thead><tbody>' + trend.map((x) => "<tr><td>" + h(monthLabel(x.m)) + "</td><td>" + moneyCell(x.s.revenue) + "</td><td>" + moneyCell(x.s.expenses) + "</td><td>" + moneyCell(x.s.net) + "</td><td>" + pct(x.s.margin) + "</td></tr>").join("") + "</tbody></table></div>" });
   }
   if (tab === "revenue-expenses") {
     const cats = expenseCategories(d, p.months);

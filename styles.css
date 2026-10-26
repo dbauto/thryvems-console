@@ -206,3 +206,11 @@ main h1[tabindex="-1"]:focus{outline:none}
   .drawer-backdrop.open{display:block;position:fixed;inset:0;background:#18202b66;z-index:29}
   .topbar-left .mobile-toggle{display:inline-flex}
 }
+
+/* Profit chart: revenue and expense bars, net profit line */
+.profit-chart{margin:4px 0 12px}.profit-chart svg{width:100%;height:auto;display:block}
+.pc-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted-foreground);margin-bottom:6px}.pc-legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px}.sw.rev{background:var(--primary)}.sw.exp{background:#9aa3b2}.sw.net{height:3px;border-radius:2px;background:var(--done)}
+.pc-rev{fill:var(--primary)}.pc-exp{fill:#9aa3b2}.pc-line{fill:none;stroke:var(--done);stroke-width:2.5;stroke-linejoin:round}.pc-dot{fill:var(--card);stroke:var(--done);stroke-width:2.5}
+.pc-grid{stroke:var(--rule-soft)}.pc-grid.zero{stroke:var(--border)}.pc-axis{fill:var(--muted-foreground);font-size:11px}
+:root.dark .pc-rev,:root.dark .sw.rev{fill:#7f8ff0;background:#7f8ff0}

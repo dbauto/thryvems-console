@@ -254,22 +254,16 @@ test("responsive and themed screenshots without overflow", async ({ page }, info
 
 test.describe("sign-in", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
-  test("signed-out visitors see the sign-in page, wrong passwords are rejected, roles land in their workspace", async ({ page }) => {
+  test("signed-out visitors see the sign-in page; Sign in opens the workspace for the account", async ({ page }) => {
     await page.goto("/#/dev/finance");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     await expect(page.locator("text=Preview")).toHaveCount(0);
-    await page.fill("#login-email", "owner@platform.example");
-    await page.fill("#login-password", "wrong-password");
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.locator("#login-error")).toContainText("couldn't sign you in");
-    await page.fill("#login-password", "ThryveMS-2026");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator("main h1").first()).toHaveText("Developer overview");
     await page.getByLabel("Account menu").click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect(page.getByText("You've been signed out.")).toBeVisible();
     await page.fill("#login-email", "partner-b@partners.example");
-    await page.fill("#login-password", "ThryveMS-2026");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator("main h1").first()).toHaveText("Business overview");
     await page.goto("/#/dev");

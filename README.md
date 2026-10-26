@@ -3,7 +3,7 @@
 Frontend **design preview** of the Developer Console and the Business Partner workspace, in the ThryveMS visual system (Public Sans, dark console sidebar, existing tokens and card style B). All records are synthetic and bundled in the source.
 
 - **Developer Console**: Overview, Organisations, Deployments (production, per-client sandboxes, monitoring), Releases, Finance (actual costs, allocations, pricing, subscriptions, enterprise projects, distributions), Requests, Logs, Background jobs, Support reports, Support access, Platform team.
-- **Business workspace**: Overview, Clients, Finance (allocated expenses only), Requests, Business settings, for the partner's assigned clients.
+- **Business workspace**: Overview, Clients, Finance (the same shared business profit as the Developer; other partners' client details hidden), Requests, Business settings, for the partner's assigned clients.
 
 Use **Preview, view as** to switch between the platform owner, Partner A, Partner B and a client user. It is a simulation, not authentication. **Data state** shows the loading, empty and error states.
 

@@ -26,3 +26,11 @@
 - ✅ Typecheck, build and e2e at code SHA 73b44c1c (GitHub Check 40096220957).
 - ✅ Responsive screenshots reviewed for layout; corrected mobile header overlap. Representative text token contrast checks passed for light links, dark links, and dark progress labels using existing colors. Owner approved PR merge on 24 Oct 2026. Full accessibility audit remains future work.
 - ✅ No production credentials, customer records, production deployment, or live provider integration included. These are intentionally deferred; backend synchronization remains **Pending**.
+
+## 26 Oct 2026 — Unified shared business profit and console redesign (PR #6)
+- ✅ One sharedProfit() for both workspaces (backend ADR-004, dbauto/thryvems-backend#16). Actual vs reported/allocated finance removed.
+- ✅ Shared profit reporting tab (P&L, by client, trends, budget, statements); other partners' clients masked, amounts kept.
+- ✅ Distributions from the same net profit: Developer 30%, Business Partners combined 70%; losses not distributed.
+- ✅ Light ThryveMS sidebar with the official logo PNGs.
+- ✅ Typecheck, unit (10), build and e2e (18 passed) green in CI at code SHA f04f3fdc. Owner approved the merge on 26 Oct 2026.
+- ✅ No production deployment, credentials or real data. Backend synchronization remains **Pending**.
